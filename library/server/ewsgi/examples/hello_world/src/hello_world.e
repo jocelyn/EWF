@@ -21,8 +21,8 @@ feature {NONE} -- Initialization
 	response (req: GW_REQUEST): GW_RESPONSE
 		do
 			Result := req.matching_response
-			Result.output.put_header (200, <<["Content-Type", "text/plain"]>>)
-			Result.output.put_string ("Hello World!%N")
+			Result.write_header (200, <<["Content-Type", "text/plain"]>>)
+			Result.write_string ("Hello World!%N")
 		end
 
 	port_number: INTEGER = 8123
