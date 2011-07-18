@@ -30,16 +30,16 @@ feature -- Execution
 
 feature -- Factory
 
-	new_request (env: GW_ENVIRONMENT; a_input: GW_INPUT_STREAM): GW_REQUEST
+	new_request (env: GW_ENVIRONMENT; a_input: GW_INPUT_STREAM; a_output: GW_OUTPUT_STREAM): GW_REQUEST
 		do
-			create {GW_REQUEST_IMP} Result.make (env, a_input)
+			create {GW_REQUEST_IMP} Result.make (env, a_input, a_output)
 			Result.execution_variables.set_variable (request_count.out, "REQUEST_COUNT")
 		end
 
-	new_response (a_output: GW_OUTPUT_STREAM): GW_RESPONSE
-		do
-			create {GW_RESPONSE_IMP} Result.make (a_output)
-		end
+--	new_response (a_output: GW_OUTPUT_STREAM): GW_RESPONSE
+--		do
+--			create {GW_RESPONSE_IMP} Result.make (a_output)
+--		end
 
 ;note
 	copyright: "2011-2011, Eiffel Software and others"

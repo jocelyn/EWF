@@ -10,7 +10,7 @@ class
 inherit
 	GW_RESPONSE
 
-create
+create {GW_APPLICATION, GW_REQUEST}
 	make
 
 feature {NONE} -- Initialization

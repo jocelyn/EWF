@@ -5,7 +5,7 @@ note
 			You can create your own descendant of this class to
 			add/remove specific value or processing
 			
-			This object is created by {GW_APPLICATION}.new_request_context
+			This object is created by {GW_APPLICATION}.new_request
 		]"
 	legal: "See notice at end of class."
 	status: "See notice at end of class."
@@ -15,11 +15,17 @@ note
 deferred class
 	GW_REQUEST
 
-feature -- Access: Input/Output
+feature -- Access: Input
 
 	input: GW_INPUT_STREAM
 			-- Server input channel
 		deferred
+		end
+
+	matching_response: GW_RESPONSE
+		deferred
+		ensure
+			always_same_response: matching_response = old matching_response
 		end
 
 feature -- Access: global variable
@@ -225,6 +231,68 @@ feature {NONE} -- Temporary File handling
 			a_filename_valid: a_filename /= Void and then not a_filename.is_empty
 		deferred
 		end
+
+feature -- Utility
+
+	script_absolute_url (a_path: STRING): STRING
+			-- Absolute Url for the script if any, extended by `a_path'
+		do
+			Result := script_url (a_path)
+			if attached environment.http_host as h then
+				Result.prepend (h)
+			else
+				--| Issue ??
+			end
+		end
+
+	script_url (a_path: STRING): STRING
+			-- Url relative to script name if any, extended by `a_path'
+		require
+			a_path_attached: a_path /= Void
+		local
+			l_base_url: like script_url_base
+			i,m,n: INTEGER
+			l_rq_uri: like environment.request_uri
+			env: like environment
+		do
+			l_base_url := script_url_base
+			if l_base_url = Void then
+				env := environment
+				if attached env.script_name as l_script_name then
+					l_rq_uri := env.request_uri
+					if l_rq_uri.starts_with (l_script_name) then
+						l_base_url := l_script_name
+					else
+						--| Handle Rewrite url engine, to have clean path
+						from
+							i := 1
+							m := l_rq_uri.count
+							n := l_script_name.count
+						until
+							i > m or i > n or l_rq_uri[i] /= l_script_name[i]
+						loop
+							i := i + 1
+						end
+						if i > 1 then
+							if l_rq_uri[i-1] = '/' then
+								i := i -1
+							end
+							l_base_url := l_rq_uri.substring (1, i - 1)
+						end
+					end
+				end
+				if l_base_url = Void then
+					create l_base_url.make_empty
+				end
+				script_url_base := l_base_url
+			end
+			Result := l_base_url + a_path
+		end
+
+	script_url_base: detachable STRING
+			-- URL base of potential script
+
+invariant
 
 note
 	copyright: "2011-2011, Eiffel Software and others"

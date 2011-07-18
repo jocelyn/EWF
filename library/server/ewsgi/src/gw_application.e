@@ -15,25 +15,24 @@ feature -- Process request
 		local
 			rescued: BOOLEAN
 			req: detachable like new_request
-			res: detachable like new_response
+			res: detachable like new_request.matching_response
 		do
 			if not rescued then
 				pre_execute (env)
-				req := new_request (env, a_input)
-				res := new_response (a_output)
-				execute (req, res)
-				post_execute (req, res)
+				req := new_request (env, a_input, a_output)
+				res := response (req)
+				post_execute (req)
 			else
-				rescue_execute (req, res, (create {EXCEPTION_MANAGER}).last_exception)
+				rescue_execute (req, (create {EXCEPTION_MANAGER}).last_exception)
 			end
 		end
 
 feature {NONE} -- Execution
 
-	execute (req: GW_REQUEST; res: GW_RESPONSE)
-			-- Execute the request
-			-- See `req.input' and `res.output' for i/o streams
-			--     `req.environment' for the Gateway environment
+	response (req: GW_REQUEST): GW_RESPONSE
+--		do
+--			Result := req.matching_response
+--			execute (req, Result)
 		deferred
 		end
 
@@ -44,32 +43,28 @@ feature {NONE} -- Execution
 		do
 		end
 
-	post_execute (req: detachable GW_REQUEST; res: detachable GW_RESPONSE)
+	post_execute (req: detachable GW_REQUEST)
 			-- Operation processed after `execute', or after `rescue_execute'
 		do
 		end
 
-	rescue_execute (req: detachable GW_REQUEST; res: detachable GW_RESPONSE; a_exception: detachable EXCEPTION)
+	rescue_execute (req: detachable GW_REQUEST; a_exception: detachable EXCEPTION)
 			-- Operation processed on rescue of `execute'
 		do
-			post_execute (req, res)
+			if req /= Void and a_exception /= Void and then attached a_exception.exception_trace as l_trace then
+				req.matching_response.write_header ({HTTP_STATUS_CODE}.internal_server_error, Void)
+				req.matching_response.write_string ("<pre>" + l_trace + "</pre>")
+			end
+			post_execute (req)
 		end
 
 feature -- Factory
 
-	new_request (env: GW_ENVIRONMENT; a_input: GW_INPUT_STREAM): GW_REQUEST
+	new_request (env: GW_ENVIRONMENT; a_input: GW_INPUT_STREAM; a_output: GW_OUTPUT_STREAM): GW_REQUEST
 			-- New Request context based on `env' and `a_input'
 			--| note: you can redefine this function to create your own
 			--| descendant of GW_REQUEST_CONTEXT , or even to reuse/recycle existing
 			--| instance of GW_REQUEST_CONTEXT	
-		deferred
-		end
-
-	new_response (a_output: GW_OUTPUT_STREAM): GW_RESPONSE
-			-- New Response based on `a_output'
-			--| note: you can redefine this function to create your own
-			--| descendant of GW_RESPONSE , or even to reuse/recycle existing
-			--| instance of GW_RESPONSE	
 		deferred
 		end
 

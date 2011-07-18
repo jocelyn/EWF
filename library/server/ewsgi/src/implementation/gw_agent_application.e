@@ -23,13 +23,12 @@ feature {NONE} -- Implementation
 
 feature {NONE} -- Implementation
 
-	callback: PROCEDURE [ANY, TUPLE [req: like new_request; res: like new_response]]
+	callback: FUNCTION [ANY, TUPLE [req: like new_request], GW_RESPONSE]
 			-- Procedure called on `execute'
 
-	execute (req: like new_request; res: like new_response)
-			-- Execute the request
+	response (req: like new_request): GW_RESPONSE
 		do
-			callback.call ([req, res])
+			Result := callback.item ([req])
 		end
 
 invariant

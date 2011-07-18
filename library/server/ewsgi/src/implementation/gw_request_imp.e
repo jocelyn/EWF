@@ -23,11 +23,12 @@ create
 
 feature {NONE} -- Initialization
 
-	make (env: GW_ENVIRONMENT; a_input: like input)
+	make (env: GW_ENVIRONMENT; a_input: like input; a_output: like output)
 		require
 			env_attached: env /= Void
 		do
 			create error_handler.make
+			output := a_output
 			input := a_input
 			environment := env
 			content_length := env.content_length_value
@@ -73,6 +74,26 @@ feature -- Access: Input
 
 	input: GW_INPUT_STREAM
 			-- Server input channel
+
+feature {NONE} -- Access: implementation
+
+	output: GW_OUTPUT_STREAM
+
+feature -- Access
+
+	matching_response: GW_RESPONSE
+		local
+			res: like internal_matching_response
+		do
+			res := internal_matching_response
+			if res = Void then
+				create {GW_RESPONSE_IMP} res.make (output)
+				internal_matching_response := res
+			end
+			Result := res
+		end
+
+	internal_matching_response: detachable like matching_response
 
 feature -- Status
 
