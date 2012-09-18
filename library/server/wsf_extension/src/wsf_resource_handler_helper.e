@@ -5,11 +5,11 @@ note
 	revision: "$Revision$"
 
 class
-	WSF_RESOURCE_HANDLER_HELPER [C -> WSF_HANDLER_CONTEXT]
+	WSF_RESOURCE_HANDLER_HELPER
 
 feature -- Execute template
 
-	execute_methods (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_methods (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Execute request and dispatch according to the request method
 		local
 			m: READABLE_STRING_8
@@ -39,7 +39,7 @@ feature -- Execute template
 
 feature -- Method Post
 
-	execute_post (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_post (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			if req.is_chunked_input then
 				do_post (ctx, req, res)
@@ -52,14 +52,14 @@ feature -- Method Post
 			end
 		end
 
-	do_post (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_post (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method POST not implemented", ctx, req, res)
 		end
 
 feature-- Method Put
 
-	execute_put (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_put (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			if req.is_chunked_input then
 				do_put (ctx, req, res)
@@ -72,91 +72,91 @@ feature-- Method Put
 			end
 		end
 
-	do_put (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_put (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method PUT not implemented", ctx, req, res)
 		end
 
 feature -- Method Get
 
-	execute_get (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_get (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_get (ctx, req, res)
 		end
 
-	do_get (ctx: C;req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_get (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method GET not implemented", ctx, req, res)
 		end
 
 feature -- Method DELETE
 
-	execute_delete (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_delete (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_delete (ctx, req, res)
 		end
 
-	do_delete (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_delete (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method DELETE not implemented", ctx, req, res)
 		end
 
 feature -- Method CONNECT
 
-	execute_connect (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_connect (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_connect (ctx, req, res)
 		end
 
-	do_connect (ctx: C;req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_connect (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method CONNECT not implemented", ctx, req, res)
 		end
 
 feature -- Method HEAD
 
-	execute_head (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_head (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_head (ctx, req, res)
 		end
 
-	do_head (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_head (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method HEAD not implemented", ctx, req, res)
 		end
 
 feature -- Method OPTIONS
 
-	execute_options (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_options (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_options (ctx, req, res)
 		end
 
-	do_options (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_options (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method OPTIONS not implemented", ctx, req, res)
 		end
 
 feature -- Method TRACE
 
-	execute_trace (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_trace (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_trace (ctx, req, res)
 		end
 
-	do_trace (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_trace (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method TRACE not implemented", ctx, req, res)
 		end
 
 feature -- Method Extension Method
 
-	execute_extension_method (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_extension_method (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			do_extension_method (ctx, req, res)
 		end
 
-	do_extension_method (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_extension_method (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
 			handle_not_implemented ("Method extension-method not implemented", ctx, req, res)
 		end
@@ -208,7 +208,7 @@ feature -- Handle responses
 			Result := Void
 		end
 
-	handle_bad_request_response (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE )
+	handle_bad_request_response (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE )
 		local
 			h : HTTP_HEADER
 		do
@@ -221,7 +221,7 @@ feature -- Handle responses
 			res.put_string (a_description)
 		end
 
-	handle_precondition_fail_response (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE )
+	handle_precondition_fail_response (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE )
 		local
 			h : HTTP_HEADER
 		do
@@ -234,7 +234,7 @@ feature -- Handle responses
 			res.put_string (a_description)
 		end
 
-	handle_internal_server_error (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE )
+	handle_internal_server_error (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE )
 		local
 			h : HTTP_HEADER
 		do
@@ -247,7 +247,7 @@ feature -- Handle responses
 			res.put_string (a_description)
 		end
 
-	handle_not_implemented (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE )
+	handle_not_implemented (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE )
 		local
 			h : HTTP_HEADER
 		do
@@ -260,7 +260,7 @@ feature -- Handle responses
 			res.put_string (a_description)
 		end
 
-	handle_method_not_allowed_response (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_method_not_allowed_response (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		local
 			h : HTTP_HEADER
 		do
@@ -273,7 +273,7 @@ feature -- Handle responses
 			res.put_string (a_description)
 		end
 
-	handle_resource_not_found_response (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_resource_not_found_response (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		local
 			h : HTTP_HEADER
 		do
@@ -287,7 +287,7 @@ feature -- Handle responses
 		end
 
 
-	handle_resource_not_modified_response (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_resource_not_modified_response (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		local
 			h : HTTP_HEADER
 		do
@@ -302,7 +302,7 @@ feature -- Handle responses
 		end
 
 
-	handle_resource_conflict_response (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_resource_conflict_response (a_description: STRING; ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 		local
 			h : HTTP_HEADER
 		do
