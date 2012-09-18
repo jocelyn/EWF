@@ -52,7 +52,7 @@ feature -- Status
 			tpl := based_uri_template (template, a_router)
 			if attached tpl.match (p) as tpl_res then
 				Result := handler
-				create ctx.make (req, tpl, tpl_res, path_from_request (req))
+				ctx := context (req, tpl, tpl_res, path_from_request (req))
 				a_router.execute_before (Current)
 				--| Applied the context to the request
 				--| in practice, this will fill the {WSF_REQUEST}.path_parameters
@@ -81,6 +81,10 @@ feature {NONE} -- Implementation
 			end
 		end
 
+	context (req: WSF_REQUEST; tpl: like template; tpl_res: URI_TEMPLATE_MATCH_RESULT; path: READABLE_STRING_32): WSF_URI_TEMPLATE_HANDLER_CONTEXT
+		do
+			create Result.make (req, tpl, tpl_res, path)
+		end
 
 note
 	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
