@@ -5,12 +5,12 @@ note
 	revision: "$Revision$"
 
 class
-	USER_HANDLER [C -> WSF_HANDLER_CONTEXT]
+	USER_HANDLER
 
 inherit
-	WSF_FILTER_HANDLER [C]
+	WSF_URI_TEMPLATE_FILTER_HANDLER
 
-	WSF_RESOURCE_HANDLER_HELPER [C]
+	WSF_RESOURCE_HANDLER_HELPER
 		redefine
 			do_get
 		end
@@ -21,13 +21,13 @@ inherit
 
 feature -- Basic operations
 
-	execute (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute (ctx: WSF_URI_TEMPLATE_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Execute request handler	
 		do
 			execute_methods (ctx, req, res)
 		end
 
-	do_get (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	do_get (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Using GET to retrieve resource information.
 			-- If the GET request is SUCCESS, we response with
 			-- 200 OK, and a representation of the user
@@ -48,7 +48,7 @@ feature -- Basic operations
 
 feature {NONE} -- Implementation
 
-	compute_response_get (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE; l_user : USER)
+	compute_response_get (ctx: WSF_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE; l_user : USER)
 		local
 			h: HTTP_HEADER
 			l_msg : STRING

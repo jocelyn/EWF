@@ -5,16 +5,16 @@ note
 	revision: "$Revision$"
 
 class
-	AUTHENTICATION_FILTER [C -> WSF_URI_TEMPLATE_HANDLER_CONTEXT]
+	AUTHENTICATION_FILTER
 
 inherit
-	WSF_FILTER_HANDLER [C]
+	WSF_URI_TEMPLATE_FILTER_HANDLER
 
 	SHARED_DATABASE_API
 
 feature -- Basic operations
 
-	execute (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute (ctx: WSF_URI_TEMPLATE_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Execute the filter
 		local
 			l_auth: HTTP_AUTHORIZATION
@@ -32,7 +32,7 @@ feature -- Basic operations
 
 feature {NONE} -- Implementation
 
-	handle_unauthorized (a_description: STRING; ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_unauthorized (a_description: STRING; ctx: WSF_URI_TEMPLATE_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Handle forbidden.
 		local
 			h: HTTP_HEADER

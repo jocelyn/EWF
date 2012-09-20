@@ -10,7 +10,7 @@ class
 inherit
 	ANY
 
-	WSF_URI_TEMPLATE_FILTERED_SERVICE
+	WSF_FILTERED_SERVICE
 
 	WSF_HANDLER_HELPER
 
@@ -34,18 +34,18 @@ feature {NONE} -- Initialization
 	create_filter
 			-- Create `filter'
 		local
-			l_router: WSF_URI_TEMPLATE_ROUTER
-			l_authentication_filter: AUTHENTICATION_FILTER [WSF_URI_TEMPLATE_HANDLER_CONTEXT]
-			l_user_filter: USER_HANDLER [WSF_URI_TEMPLATE_HANDLER_CONTEXT]
-			l_user_handler: WSF_HANDLER [WSF_URI_TEMPLATE_HANDLER_CONTEXT]
-			l_routing_filter: WSF_ROUTING_FILTER [WSF_HANDLER [WSF_URI_TEMPLATE_HANDLER_CONTEXT], WSF_URI_TEMPLATE_HANDLER_CONTEXT]
+			l_router: WSF_ROUTER
+			l_authentication_filter: AUTHENTICATION_FILTER
+			l_user_filter: USER_HANDLER
+			l_user_handler: WSF_URI_TEMPLATE_HANDLER
+			l_routing_filter: WSF_ROUTING_FILTER
 		do
 			create l_router.make (1)
 			create l_authentication_filter
 			create l_user_filter
 			l_authentication_filter.set_next (l_user_filter)
 			l_user_handler := l_authentication_filter
-			l_router.map_with_request_methods ("/user/{userid}", l_user_handler, << "GET" >>)
+			l_router.map_with_request_methods (create {WSF_URI_TEMPLATE_MAPPING}.make ("/user/{userid}", l_user_handler), << "GET" >>)
 			create l_routing_filter.make (l_router)
 			l_routing_filter.set_execute_default_action (agent execute_default)
 			filter := l_routing_filter

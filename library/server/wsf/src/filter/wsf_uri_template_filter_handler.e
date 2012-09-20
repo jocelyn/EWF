@@ -1,6 +1,6 @@
 note
 	description: "[
-				Handler that can also play the role of a filter, i.e. 
+				Handler that can also play the role of a filter, i.e.
 				than can pre-process incoming data and post-process outgoing data.
 		]"
 	author: ""
@@ -8,19 +8,19 @@ note
 	revision: "$Revision$"
 
 deferred class
-	WSF_FILTER_HANDLER [C -> WSF_HANDLER_CONTEXT]
+	WSF_URI_TEMPLATE_FILTER_HANDLER
 
 inherit
-	WSF_HANDLER [C]
+	WSF_URI_TEMPLATE_HANDLER
 
 feature -- Access
 
-	next: detachable WSF_FILTER_HANDLER [C]
+	next: detachable WSF_URI_TEMPLATE_FILTER_HANDLER
 			-- Next filter
 
 feature -- Element change
 
-	set_next (a_next: WSF_FILTER_HANDLER [C])
+	set_next (a_next: WSF_URI_TEMPLATE_FILTER_HANDLER)
 			-- Set `next' to `a_next'
 		do
 			next := a_next
@@ -30,7 +30,7 @@ feature -- Element change
 
 feature {NONE} -- Implementation
 
-	execute_next (ctx: C; req: WSF_REQUEST; res: WSF_RESPONSE)
+	execute_next (ctx: WSF_URI_TEMPLATE_HANDLER_CONTEXT; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Execute the `next' filter.
 		do
 			if attached next as n then
