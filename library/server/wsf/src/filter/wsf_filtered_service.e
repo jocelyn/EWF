@@ -5,7 +5,10 @@ note
 	revision: "$Revision$"
 
 deferred class
-	WSF_URI_TEMPLATE_FILTERED_SERVICE
+	WSF_FILTERED_SERVICE
+
+inherit
+	WSF_SERVICE
 
 feature {NONE} -- Initialization
 
