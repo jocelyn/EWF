@@ -2,6 +2,7 @@ note
 	description: "[
 				application service
 			]"
+	copyright: "${APP_COPYRIGHT}"
 	date: "$Date$"
 	revision: "$Revision$"
 
