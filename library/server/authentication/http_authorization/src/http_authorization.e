@@ -26,7 +26,7 @@ feature -- Initialization
 	make (a_http_authorization: detachable READABLE_STRING_8)
 			-- Initialize `Current'.
 		local
-			i: INTEGER
+			i, j: INTEGER
 			t, s: STRING_8
 			u,p: READABLE_STRING_32
 			utf: UTF_CONVERTER
@@ -65,6 +65,26 @@ feature -- Initialization
 							end
 						elseif t.same_string (Digest_auth_type) then
 							type := Digest_auth_type
+
+							-- Parsing
+							i := a_http_authorization.substring_index ("response", i)
+							i := a_http_authorization.index_of ('"', i)
+							j := a_http_authorization.index_of ('"', i + 1)
+
+							if i+1 > j-1 then
+								io.putstring ("Digest auth. does not contain response")
+							else
+								response_value :=a_http_authorization.substring (i+1, j-1)
+
+								if attached response_value as a_response_value then
+									io.putstring ("Parsed response: " + a_response_value)
+								else
+									io.putstring ("Response value not attached")
+								end
+							end
+
+							io.new_line
+
 							io.putstring ("HTTP_AUTHORIZATION.make(): Digest Authorization. To be implemented.%N")
 							to_implement ("HTTP Authorization %"digest%", not yet implemented")
 						else
@@ -123,6 +143,20 @@ feature -- Access
 	login: detachable READABLE_STRING_32
 
 	password: detachable READABLE_STRING_32
+
+	realm_value: detachable READABLE_STRING_32
+
+	nonce_value: detachable READABLE_STRING_32
+
+	nc_value: detachable READABLE_STRING_32
+
+	cnonce_value: detachable READABLE_STRING_32
+
+	qop_value: detachable READABLE_STRING_32
+
+	response_value: detachable READABLE_STRING_32
+
+	opaque_value: detachable READABLE_STRING_32
 
 feature -- Status report
 
