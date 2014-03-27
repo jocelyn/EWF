@@ -22,6 +22,8 @@ feature {NONE} -- Initialization
 	initialize
 			-- Initialize current service.
 		do
+			io.putstring ("called DEMO_BASIC.initialize\n")
+
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
 		end
@@ -76,13 +78,26 @@ feature -- Basic operations
 			l_authenticated_username: detachable READABLE_STRING_32
 			l_invalid_credential: BOOLEAN
 		do
+			io.putstring ("Called DEMO_BASIC.execute%N")
+
 			if attached req.http_authorization as l_http_auth then
+
+				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
+				io.put_new_line
+				io.putstring ("http authorization header of request:")
+				io.put_new_line
+				print(l_http_auth)
+				io.put_new_line
+
 				create auth.make (l_http_auth)
 				if attached auth.login as l_login and then is_valid_credential (l_login, auth.password) then
 					l_authenticated_username := auth.login
 				else
 					l_invalid_credential := True
 				end
+			else
+				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
+				io.put_new_line
 			end
 			if l_invalid_credential then
 				handle_unauthorized ("ERROR: Invalid credential", req, res)
@@ -109,6 +124,9 @@ feature -- Basic operations
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
 		do
+			io.putstring ("DEMO_BASIC.handle_authenticated")
+			io.put_new_line
+
 			create s.make_empty
 
 			append_html_header (req, s)
@@ -132,6 +150,9 @@ feature -- Basic operations
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
 		do
+			io.putstring ("DEMO_BASIC.handle_anonymous")
+			io.put_new_line
+
 			create s.make_empty
 			append_html_header (req, s)
 
@@ -153,7 +174,17 @@ feature -- Basic operations
 			h: HTTP_HEADER
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
+			values: LINKED_LIST[STRING]
 		do
+--			io.putstring ("DEMO_BASIC.handle_unauthorized")
+--			io.put_new_line
+--			io.putstring ("Request: ")
+--			print(req)
+--			io.put_new_line
+--			io.putstring ("Response: ")
+--			print(res)
+--			io.put_new_line
+
 			create s.make_from_string (a_description)
 
 			append_html_login (req, s)
@@ -162,11 +193,26 @@ feature -- Basic operations
 
 			create page.make
 			page.set_status_code ({HTTP_STATUS_CODE}.unauthorized)
-			page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_www_authenticate,
-					"Basic realm=%"Please enter a valid username and password (demo [" + html_encoder.encoded_string (demo_credential) + "])%""
-					--| warning: for this example: a valid credential is provided in the message, of course that for real application.
-				)
+--			page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_www_authenticate,
+--					"Basic realm=%"Please enter a valid username and password (demo [" + html_encoder.encoded_string (demo_credential) + "])%""
+--					--| warning: for this example: a valid credential is provided in the message, of course that for real application.
+--				)
+
+			create values.make
+
+			values.force ("Digest realm=%"testrealm@host.com%"")
+			values.force ("qop=%"auth,auth-int%"")
+			values.force ("nonce=%"dcd98b7102dd2f0e8b11d0f600bfb0c093%"")
+			values.force ("qop=%"5ccc069c403ebaf9f0171e9517f40e41%"")
+
+			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, Void)
+
 			page.set_body (s)
+
+			print("page.header.string:%N")
+			PRINT(page.header.string)
+			io.new_line
+
 			res.send (page)
 		end
 
