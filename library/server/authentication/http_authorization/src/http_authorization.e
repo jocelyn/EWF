@@ -65,6 +65,7 @@ feature -- Initialization
 							end
 						elseif t.same_string (Digest_auth_type) then
 							type := Digest_auth_type
+							io.putstring ("HTTP_AUTHORIZATION.make(): Digest Authorization. To be implemented.%N")
 							to_implement ("HTTP Authorization %"digest%", not yet implemented")
 						else
 							to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
@@ -79,6 +80,8 @@ feature -- Initialization
 	make_basic_auth (u: READABLE_STRING_32; p: READABLE_STRING_32)
 			-- Create a Basic authentication.
 		do
+			io.putstring ("HTTP_AUTHORIZATION.make_basic_auth()%N")
+
 			make_custom_auth (u, p, Basic_auth_type)
 		end
 
@@ -91,6 +94,8 @@ feature -- Initialization
 			t: STRING_8
 			utf: UTF_CONVERTER
 		do
+			io.putstring ("HTTP_AUTHORIZATION.make_custom_auth()%N")
+
 			login := u
 			password := p
 			create t.make_from_string (a_type)

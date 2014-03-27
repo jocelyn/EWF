@@ -260,6 +260,9 @@ feature -- Helper
 			s.append ("<hr/>")
 			if attached req.http_authorization as l_http_authorization then
 				s.append ("Has <em>Authorization:</em> header: ")
+
+				io.putstring ("DEMO_BASIC.append_html_footer()%N")
+
 				create hauth.make (req.http_authorization)
 				if attached hauth.login as l_login then
 					s.append (" login=<strong>" + html_encoder.encoded_string (l_login)+ "</strong>")
