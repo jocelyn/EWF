@@ -66,24 +66,13 @@ feature -- Initialization
 						elseif t.same_string (Digest_auth_type) then
 							type := Digest_auth_type
 
-							-- Parsing
-							i := a_http_authorization.substring_index ("response", i)
-							i := a_http_authorization.index_of ('"', i)
-							j := a_http_authorization.index_of ('"', i + 1)
-
-							if i+1 > j-1 then
-								io.putstring ("Digest auth. does not contain response")
-							else
-								response_value :=a_http_authorization.substring (i+1, j-1)
-
-								if attached response_value as a_response_value then
-									io.putstring ("Parsed response: " + a_response_value)
-								else
-									io.putstring ("Response value not attached")
-								end
-							end
-
+							-- XXX Why do we know here that a_http_authorization is attached?
+							io.putstring ("Response: ---" + get_header_value_by_key (a_http_authorization, "response") + "---")
 							io.new_line
+
+							io.putstring ("Unquoted response: ---" + unquote_string(get_header_value_by_key (a_http_authorization, "response")) + "---")
+							io.new_line
+
 
 							io.putstring ("HTTP_AUTHORIZATION.make(): Digest Authorization. To be implemented.%N")
 							to_implement ("HTTP Authorization %"digest%", not yet implemented")
@@ -189,6 +178,64 @@ feature -- Status report
 				Result.append ("] ")
 			end
 		end
+
+feature -- Digest computation
+
+	compute_hash_A1 (u: READABLE_STRING_8; r: READABLE_STRING_8; p: READABLE_STRING_8): STRING_8
+			-- Compute H(A1).
+			-- TODO When do we use which string class?
+		local
+--			hash: MD5
+		do
+			create Result.make_empty
+		end
+
+feature -- Access
+
+	get_header_value_by_key(h: READABLE_STRING_8; k: STRING_8): STRING_8
+			-- From header `h', get value associated to key `k'.
+			-- Note: Response could be quoted.
+		local
+			i,j: INTEGER
+		do
+			i := h.substring_index (k, 1)
+
+			if i = 0 then
+				io.putstring ("Header " + h + " does not have a value associated to key " + k)
+				create Result.make_empty
+			else
+				i := h.index_of ('=', i)
+				j := h.index_of (',', i + 1)
+
+				check
+					not(i+1 > j-1 or i = 0 or j = 0)
+				end
+
+				Result := h.substring (i+1, j-1)
+			end
+		end
+
+	unquote_string(s: STRING_8): STRING_8
+			-- Returns string without quotes, or empty string if string is not quoted.
+		local
+			i, j: INTEGER
+			rs: STRING_8
+		do
+			create rs.make_from_string (s)
+
+			rs.left_adjust
+			rs.right_adjust
+
+			i := rs.index_of ('"', 1)
+			j := rs.index_of ('"', i+1)
+
+			if i+1 > j-1 or i = 0 or j = 0 then
+				create Result.make_empty
+			else
+				Result := rs.substring (i+1, j-1)
+			end
+		end
+
 
 feature -- Constants
 
