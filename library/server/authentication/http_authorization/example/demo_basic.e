@@ -201,7 +201,7 @@ feature -- Basic operations
 			create values.make
 
 			values.force ("Digest realm=%"testrealm@host.com%"")
-			values.force ("qop=%"auth,auth-int%"")
+			values.force ("qop=%"auth%"")
 			values.force ("nonce=%"dcd98b7102dd2f0e8b11d0f600bfb0c093%"")
 			values.force ("qop=%"5ccc069c403ebaf9f0171e9517f40e41%"")
 

@@ -67,11 +67,20 @@ feature -- Initialization
 							type := Digest_auth_type
 
 							-- XXX Why do we know here that a_http_authorization is attached?
-							io.putstring ("Response: ---" + get_header_value_by_key (a_http_authorization, "response") + "---")
-							io.new_line
+							response_value := get_header_value_by_key (a_http_authorization, "response")
 
-							io.putstring ("Unquoted response: ---" + unquote_string(get_header_value_by_key (a_http_authorization, "response")) + "---")
-							io.new_line
+							if attached response_value as a_response_value then
+								io.putstring ("Response: ---" + a_response_value.to_string_8 + "---")
+								io.new_line
+
+								io.putstring ("Response String_32: ---" + a_response_value.to_string_32 + "---")
+								io.new_line
+
+								io.putstring ("Unquoted response: ---" + a_response_value.to_string_8 + "---")
+								io.new_line
+							end
+
+
 
 
 							io.putstring ("HTTP_AUTHORIZATION.make(): Digest Authorization. To be implemented.%N")
