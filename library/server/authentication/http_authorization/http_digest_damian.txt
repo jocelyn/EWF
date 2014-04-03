@@ -1,0 +1,73 @@
+In the following, I try to summarize the various areas that http_degist requires to work on.
+
+
+
+WWW-Authenticate Response Header
+--------------------------------------------------------------
+nonce
+  Provide "good" nonces.
+  For now, we only use the same (arbitrary) nonce.
+  Low priority.
+
+opaque
+  Find out meaning of this value. Why should we use it?
+  Provide "good" opaque values.
+  For now, we only use the same (arbitrary) opaque.
+  Low priority.
+
+algorithm
+  For now, we only consider "MD5".
+  If this is done, include "MD5-sess".
+  Low priority.
+
+stale
+  Middle priority.
+
+qop-options
+  For now, we only use "auth".
+  Later, we include "auth-int".
+  Then, we also consider "qop" not being present.
+  Low priority.
+
+
+
+Authorization Request Header
+--------------------------------------------------------------
+For now, we assume the restrictions stated above
+
+cnonce
+  Provide "good" cnonce values.
+  For now, we only use the same (arbitrary) cnonce.
+  Low priority.
+
+nonce-count
+  High priority¨
+
+request-digest
+  request-digest  = <"> < KD ( H(A1),   unq(nonce-value)
+                                        ":" nc-value
+                                        ":" unq(cnonce-value)
+                                        ":" unq(qop-value)
+                                        ":" H(A2)
+                              ) <">
+
+A1
+  A1  = unq(username-value) ":" unq(realm-value) ":" passwd
+
+A2
+  A2  = Method ":" digest-uri-value
+
+400 Bad request
+  High priority
+
+
+
+Authentication-Info Header
+--------------------------------------------------------------
+Low priority
+
+
+
+MD5
+--------------------------------------------------------------
+Maybe we need to add/modify some features of the MD5 library.
