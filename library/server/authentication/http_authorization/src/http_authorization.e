@@ -25,13 +25,16 @@ feature -- Initialization
 
 	make (a_http_authorization: detachable READABLE_STRING_8)
 			-- Initialize `Current'.
+			-- Parse authorization header.
+			-- Does NOT check for valid login!
+			-- TODO What should we do if argument is void?
 		local
 			i, j: INTEGER
 			t, s: STRING_8
 			u,p: READABLE_STRING_32
 			utf: UTF_CONVERTER
+			l_md5: MD5
 		do
-			login := Void
 			password := Void
 			if a_http_authorization = Void then
 					-- Default: Basic
@@ -55,7 +58,7 @@ feature -- Initialization
 							s := (create {BASE64}).decoded_string (a_http_authorization.substring (i + 1, a_http_authorization.count))
 							i := s.index_of (':', 1) --| Let's assume ':' is forbidden in login ...
 							if i > 0 then
-								u := utf.utf_8_string_8_to_string_32 (s.substring (1, i - 1)) -- UTF_8 decoding to support unicode password
+								u := utf.utf_8_string_8_to_string_32 (s.substring (1, i - 1)) -- UTF_8 decoding to support unicode username
 								p := utf.utf_8_string_8_to_string_32 (s.substring (i + 1, s.count)) -- UTF_8 decoding to support unicode password
 								login := u
 								password := p
@@ -63,36 +66,38 @@ feature -- Initialization
 									(create {HTTP_AUTHORIZATION}.make_custom_auth (u, p, t)).http_authorization ~ http_authorization
 								end
 							end
-						elseif t.same_string (Digest_auth_type) then
+						else
+							check
+								t.same_string (Digest_auth_type)
+							end
 							type := Digest_auth_type
 
 							-- XXX Why do we know here that a_http_authorization is attached?
+							-- It needs to be attahed if it is used as an argument in get_header..., right?
 							response_value := get_header_value_by_key (a_http_authorization, "response")
-
-							if attached response_value as a_response_value then
-								io.putstring ("Response: ---" + a_response_value.to_string_8 + "---")
-								io.new_line
-
-								io.putstring ("Response String_32: ---" + a_response_value.to_string_32 + "---")
-								io.new_line
-
-								io.putstring ("Unquoted response: ---" + a_response_value.to_string_8 + "---")
-								io.new_line
-							end
-
-
-
+							login := get_header_value_by_key (a_http_authorization, "username")
+							realm_value := get_header_value_by_key (a_http_authorization, "realm")
+							nonce_value := get_header_value_by_key (a_http_authorization, "nonce")
+							uri_value := get_header_value_by_key (a_http_authorization, "uri")
+							qop_value := get_header_value_by_key (a_http_authorization, "qop")
+							nc_value := get_header_value_by_key (a_http_authorization, "nc")
+							cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
+							opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
 
 							io.putstring ("HTTP_AUTHORIZATION.make(): Digest Authorization. To be implemented.%N")
 							to_implement ("HTTP Authorization %"digest%", not yet implemented")
-						else
-							to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
 						end
 					end
 				end
 			end
 		ensure
 			a_http_authorization /= Void implies http_authorization /= Void
+--			a_http_authorization.has_substring ("Basic") or a_http_authorization.has_substring ("basic") or a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("digest")
+--			a_http_authorization.has_substring ("Basic") or a_http_authorization.has_substring ("basic") or a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("digest")
+--			type.is_case_insensitive_equal (basic_auth_type) or type.is_case_insensitive_equal (digest_auth_type)
+--			(a_http_authorization.has_substring ("Basic") or a_http_authorization.has_substring ("basic")) implies type.is_case_insensitive_equal (basic_auth_type)
+--			(a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("digest")) implies type.is_case_insensitive_equal (digest_auth_type)
+
 		end
 
 	make_basic_auth (u: READABLE_STRING_32; p: READABLE_STRING_32)
@@ -138,6 +143,7 @@ feature -- Access
 
 	type: READABLE_STRING_8
 
+	-- Deprecated. Rename into `username'.
 	login: detachable READABLE_STRING_32
 
 	password: detachable READABLE_STRING_32
@@ -156,6 +162,8 @@ feature -- Access
 
 	opaque_value: detachable READABLE_STRING_32
 
+	uri_value: detachable READABLE_STRING_32
+
 feature -- Status report
 
 	is_basic: BOOLEAN
@@ -168,6 +176,57 @@ feature -- Status report
 			-- Is Basic authorization?
 		do
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
+		end
+
+	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]): BOOLEAN
+			-- Check authorization.
+			-- If authorization method unknown, deny access.
+		require
+			attached login
+		local
+			HA1: STRING_8
+		do
+			if 	type.is_case_insensitive_equal (basic_auth_type) then
+				-- XXX When check for attachment, when for voidness? Difference?
+				if
+					attached password as attached_password and
+					attached login as attached_login
+				then
+					if
+						attached valid_credentials.item (attached_login) as l_passwd
+					then
+						Result := attached_password.is_case_insensitive_equal (l_passwd)
+					end
+				end
+			elseif 	type.is_case_insensitive_equal (digest_auth_type) then
+				io.putstring ("----HTTP_AUTH.is_authorized: Digest%N")
+				if
+					attached login as attached_login and
+					attached realm_value as attached_realm_value and
+					attached response_value as attached_response_value
+				then
+					io.putstring ("----HTTP_AUTH.is_authorized: Login, realm, response attached.%N")
+					io.putstring ("----Logins:%N")
+
+					if attached valid_credentials.item (unquote_string (attached_login)) as attached_password then
+						io.putstring ("----HTTP_AUTH.is_authorized: Computing HA1%N")
+						HA1 := compute_hash_a1 (attached_login, attached_realm_value, attached_password)
+						Result := HA1.is_equal (attached_response_value)
+					else
+						io.putstring ("----HTTP_AUTH.is_authorized: Unvalid. Login: " + attached_login + "%N")
+					end
+				elseif not attached login then
+					io.putstring ("----HTTP_AUTH.is_authorized: Login not attached%N")
+				elseif not attached realm_value then
+					io.putstring ("----HTTP_AUTH.is_authorized: Realm not attached%N")
+--				elseif not attached password then
+--					io.putstring ("----HTTP_AUTH.is_authorized: Password not attached%N")
+				elseif not attached realm_value then
+					io.putstring ("----HTTP_AUTH.is_authorized: Response not attached%N")
+				end
+			end
+		ensure
+			Result implies (attached login as a_login and then valid_credentials.has (a_login))
 		end
 
 	debug_output: STRING_32
@@ -193,10 +252,28 @@ feature -- Digest computation
 	compute_hash_A1 (u: READABLE_STRING_8; r: READABLE_STRING_8; p: READABLE_STRING_8): STRING_8
 			-- Compute H(A1).
 			-- TODO When do we use which string class?
+		require
+			-- Necessary?
+			attached type and type /= Void and then	type.is_case_insensitive_equal (digest_auth_type)
 		local
---			hash: MD5
+			hash: MD5
+			A1: READABLE_STRING_8
 		do
-			create Result.make_empty
+			io.putstring ("/////compute_hash_A1")
+
+			create hash.make
+
+			A1 := unquote_string(u) + ":" + unquote_string(r) + ":" + p
+
+			hash.update_from_string (A1);
+
+			Result := hash.digest_as_string
+
+			io.put_string ("*********A1: " + A1)
+			io.new_line
+			io.put_string ("*********HA1: " + Result)
+			io.new_line
+
 		end
 
 feature -- Access
@@ -224,11 +301,11 @@ feature -- Access
 			end
 		end
 
-	unquote_string(s: STRING_8): STRING_8
+	unquote_string(s: STRING_32): STRING_32
 			-- Returns string without quotes, or empty string if string is not quoted.
 		local
 			i, j: INTEGER
-			rs: STRING_8
+			rs: STRING_32
 		do
 			create rs.make_from_string (s)
 
@@ -255,6 +332,11 @@ invariant
 
 	type_valid: (type.is_case_insensitive_equal (basic_auth_type) implies type = basic_auth_type)
 				or (type.is_case_insensitive_equal (Digest_auth_type) implies type = Digest_auth_type)
+
+	-- attachement test necessary?
+	type_attached_and_nonEmpty: attached type and then not type.is_empty
+
+--	login_attached_and_nonEmpty: attached login and then not login.is_empty
 
 
 end

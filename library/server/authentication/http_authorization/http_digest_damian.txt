@@ -35,13 +35,8 @@ Authorization Request Header
 --------------------------------------------------------------
 For now, we assume the restrictions stated above
 
-cnonce
-  Provide "good" cnonce values.
-  For now, we only use the same (arbitrary) cnonce.
-  Low priority.
-
 nonce-count
-  High priority¨
+  Middle priority
 
 request-digest
   request-digest  = <"> < KD ( H(A1),   unq(nonce-value)

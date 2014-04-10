@@ -22,7 +22,7 @@ feature {NONE} -- Initialization
 	initialize
 			-- Initialize current service.
 		do
-			io.putstring ("called DEMO_BASIC.initialize\n")
+--			io.putstring ("called DEMO_BASIC.initialize\n")
 
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
@@ -65,6 +65,7 @@ feature -- Credentials
 			Result.force ("world", "eiffel")
 			Result.force ("bar", "foo")
 			Result.force ("password", "user")
+			Result.force ("Circle Of Life", "Mufasa")
 		ensure
 			not Result.is_empty
 		end
@@ -76,7 +77,7 @@ feature -- Basic operations
 		local
 			auth: HTTP_AUTHORIZATION
 			l_authenticated_username: detachable READABLE_STRING_32
-			l_invalid_credential: BOOLEAN
+			l_valid_credential: BOOLEAN
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
 
@@ -90,16 +91,23 @@ feature -- Basic operations
 				io.put_new_line
 
 				create auth.make (l_http_auth)
-				if attached auth.login as l_login and then is_valid_credential (l_login, auth.password) then
-					l_authenticated_username := auth.login
-				else
-					l_invalid_credential := True
-				end
+
+--				if attached auth.login as l_login and then is_valid_credential (l_login, auth.password) then
+--					l_authenticated_username := auth.login
+--				else
+--					l_invalid_credential := True
+--				end
+
+				l_valid_credential := auth.is_authorized (valid_credentials)
+
+				l_authenticated_username := auth.login
+
 			else
 				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
 				io.put_new_line
 			end
-			if l_invalid_credential then
+
+			if not l_valid_credential then
 				handle_unauthorized ("ERROR: Invalid credential", req, res)
 			else
 				if l_authenticated_username /= Void then
