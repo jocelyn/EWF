@@ -98,9 +98,14 @@ feature -- Basic operations
 --					l_invalid_credential := True
 --				end
 
-				l_valid_credential := auth.is_authorized (valid_credentials)
+				l_valid_credential := auth.is_authorized (valid_credentials, req.request_method, req.request_uri)
 
-				l_authenticated_username := auth.login
+				-- TODO replace with line above
+--				l_valid_credential := auth.is_authorized (valid_credentials, req.request_method, "/dir/index.html")
+
+				if attached auth.login as attached_auth_login then
+					l_authenticated_username := auth.get_unquoted_string (attached_auth_login)
+				end
 
 			else
 				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
@@ -213,7 +218,8 @@ feature -- Basic operations
 			values.force ("nonce=%"dcd98b7102dd2f0e8b11d0f600bfb0c093%"")
 			values.force ("qop=%"5ccc069c403ebaf9f0171e9517f40e41%"")
 
-			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, Void)
+			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
+			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 
 			page.set_body (s)
 

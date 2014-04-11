@@ -178,13 +178,18 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
-	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]): BOOLEAN
+	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]; m: READABLE_STRING_8; u: READABLE_STRING_8): BOOLEAN
 			-- Check authorization.
 			-- If authorization method unknown, deny access.
+			-- `m': Method
+			-- `u': Uri
+			-- TODO Maybe give other parameter, for example: req
 		require
 			attached login
 		local
 			HA1: STRING_8
+			HA2: STRING_8
+			response_expected: STRING_8
 		do
 			if 	type.is_case_insensitive_equal (basic_auth_type) then
 				-- XXX When check for attachment, when for voidness? Difference?
@@ -210,8 +215,14 @@ feature -- Status report
 
 					if attached valid_credentials.item (unquote_string (attached_login)) as attached_password then
 						io.putstring ("----HTTP_AUTH.is_authorized: Computing HA1%N")
+
 						HA1 := compute_hash_a1 (attached_login, attached_realm_value, attached_password)
-						Result := HA1.is_equal (attached_response_value)
+
+						HA2 := compute_hash_a2(m, u)
+
+						response_expected := compute_expected_response (HA1, HA2)
+
+						Result :=response_expected.is_equal (unquote_string (attached_response_value))
 					else
 						io.putstring ("----HTTP_AUTH.is_authorized: Unvalid. Login: " + attached_login + "%N")
 					end
@@ -219,8 +230,6 @@ feature -- Status report
 					io.putstring ("----HTTP_AUTH.is_authorized: Login not attached%N")
 				elseif not attached realm_value then
 					io.putstring ("----HTTP_AUTH.is_authorized: Realm not attached%N")
---				elseif not attached password then
---					io.putstring ("----HTTP_AUTH.is_authorized: Password not attached%N")
 				elseif not attached realm_value then
 					io.putstring ("----HTTP_AUTH.is_authorized: Response not attached%N")
 				end
@@ -259,8 +268,6 @@ feature -- Digest computation
 			hash: MD5
 			A1: READABLE_STRING_8
 		do
-			io.putstring ("/////compute_hash_A1")
-
 			create hash.make
 
 			A1 := unquote_string(u) + ":" + unquote_string(r) + ":" + p
@@ -269,6 +276,8 @@ feature -- Digest computation
 
 			Result := hash.digest_as_string
 
+			Result.to_lower
+
 			io.put_string ("*********A1: " + A1)
 			io.new_line
 			io.put_string ("*********HA1: " + Result)
@@ -276,28 +285,117 @@ feature -- Digest computation
 
 		end
 
+	compute_hash_A2 (m: READABLE_STRING_8; u: READABLE_STRING_8): STRING_8
+			-- Compute H(A2)
+			-- `m': Method, `u': uri
+		local
+			hash: MD5
+			A2: READABLE_STRING_8
+		do
+			A2 := m + ":" + u
+
+			create hash.make
+
+			io.put_string ("*********Compute A2 with uri: " + u)
+			io.new_line
+
+
+			hash.update_from_string (A2)
+
+			Result := hash.digest_as_string
+
+			Result.to_lower
+
+			io.put_string ("*********A2: " + A2)
+			io.new_line
+			io.put_string ("*********HA2: " + Result)
+			io.new_line
+		end
+
+	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8) : STRING_8
+			-- Compute UNQUOTED expected response.
+			-- TODO Compute expected response, which is quoted. How can I add qoutes to the string?
+		local
+			hash: MD5
+			unhashed_response: READABLE_STRING_8
+			no, nc, cn, qo: READABLE_STRING_8
+		do
+			create Result.make_empty
+
+			-- TODO Delete the following lines
+--			cnonce_value := "%"0a4f113b%""
+
+			if
+				attached nonce_value as a_nonce_value and
+				attached nc_value as a_nc_value and
+				attached cnonce_value as a_cnonce_value and
+				attached qop_value as a_qop_value
+			then
+				create hash.make
+
+				io.put_string ("*********nonce: " + a_nonce_value)
+				io.new_line
+				io.put_string ("*********nc: " + a_nc_value)
+				io.new_line
+				io.put_string ("*********cnonce: " + a_cnonce_value)
+				io.new_line
+				io.put_string ("*********qop: " + a_qop_value)
+				io.new_line
+
+
+				no := unquote_string (a_nonce_value)
+				nc := a_nc_value
+				cn := unquote_string (a_cnonce_value)
+				qo := a_qop_value
+
+				unhashed_response := ha1 + ":" + no + ":" + nc + ":" + cn + ":" + qo + ":" + ha2
+				hash.update_from_string (unhashed_response)
+
+				Result := hash.digest_as_string
+
+				Result.to_lower
+
+				io.put_string ("*********Unhashed response: " + unhashed_response)
+				io.new_line
+				io.put_string ("*********Expected unquoted response: " + Result)
+				io.new_line
+			else
+				io.putstring ("Could not compute expected response. Something not attached.%N")
+			end
+		end
+
 feature -- Access
 
 	get_header_value_by_key(h: READABLE_STRING_8; k: STRING_8): STRING_8
 			-- From header `h', get value associated to key `k'.
 			-- Note: Response could be quoted.
+			-- FIXME
 		local
 			i,j: INTEGER
 		do
-			i := h.substring_index (k, 1)
+			-- We assume that each key-value pair begins with a space and ends with '='.
+			i := h.substring_index (" " + k + "=", 1)
 
 			if i = 0 then
 				io.putstring ("Header " + h + " does not have a value associated to key " + k)
 				create Result.make_empty
 			else
 				i := h.index_of ('=', i)
-				j := h.index_of (',', i + 1)
+
+				j :=  h.index_of (',', i + 1)
+
+				-- Special treatment of last pair, since it is not terminated by a coma.
+				if j = 0 and i > 0 then
+					j := h.count + 1
+				end
 
 				check
 					not(i+1 > j-1 or i = 0 or j = 0)
 				end
 
 				Result := h.substring (i+1, j-1)
+
+				io.putstring ("Parsed " + k +": " + Result + "%N")
 			end
 		end
 
@@ -319,6 +417,16 @@ feature -- Access
 				create Result.make_empty
 			else
 				Result := rs.substring (i+1, j-1)
+			end
+		end
+
+	get_unquoted_string(s: STRING_32) : STRING_32
+			-- If the original string contains quotes, then remove the quotes.
+		do
+			if s.has ('"') then
+				Result := unquote_string (s)
+			else
+				Result := s
 			end
 		end
 
