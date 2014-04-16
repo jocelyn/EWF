@@ -112,10 +112,13 @@ feature -- Initialization
 							qop_value := get_header_value_by_key (a_http_authorization, "qop")
 							if
 								attached qop_value as attached_qop_value and then
-								not (attached_qop_value.is_equal ("%"auth%"") or attached_qop_value.is_equal ("%"auth-int%""))
+								-- Note: Here, auth and auth-int are not quoted any more!
+								not (attached_qop_value.is_equal ("auth") or attached_qop_value.is_equal ("auth-int"))
 							then
 								qop_value := Void
 							end
+
+							-- TODO Parse algorithm
 
 							-- TODO Parse nc
 							nc_value := get_header_value_by_key (a_http_authorization, "nc")
@@ -430,7 +433,6 @@ feature -- Access
 			i := h.substring_index (" " + k + "=", 1)
 
 			if i = 0 then
-				io.putstring ("Header " + h + " does not have a value associated to key " + k)
 				create Result.make_empty
 			else
 				i := h.index_of ('=', i)
@@ -447,9 +449,9 @@ feature -- Access
 				end
 
 				Result := h.substring (i+1, j-1)
-
-				io.putstring ("Parsed " + k +": " + Result + "%N")
 			end
+
+			io.putstring ("Parsed " + k +": " + Result + "%N")
 		end
 
 	unquote_string(s: STRING_32): STRING_32

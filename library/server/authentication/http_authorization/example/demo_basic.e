@@ -207,7 +207,7 @@ feature -- Basic operations
 			values.force ("Digest realm=%"testrealm@host.com%"")
 			values.force ("qop=%"auth%"")
 			values.force ("nonce=%"dcd98b7102dd2f0e8b11d0f600bfb0c093%"")
-			values.force ("qop=%"5ccc069c403ebaf9f0171e9517f40e41%"")
+			values.force ("opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"")
 
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
