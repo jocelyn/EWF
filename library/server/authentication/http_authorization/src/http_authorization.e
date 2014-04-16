@@ -112,7 +112,7 @@ feature -- Initialization
 							qop_value := get_header_value_by_key (a_http_authorization, "qop")
 							if
 								attached qop_value as attached_qop_value and then
-								not (attached_qop_value.is_equal ("%"auth%"") or attached_qop_value.is_equal ("%"auth-int%"")
+								not (attached_qop_value.is_equal ("%"auth%"") or attached_qop_value.is_equal ("%"auth-int%""))
 							then
 								qop_value := Void
 							end
@@ -355,7 +355,7 @@ feature -- Digest computation
 		end
 
 	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8) : STRING_8
-			-- Compute UNQUOTED expected response.
+			-- Computes UNQUOTED expected response.
 			-- TODO Compute expected response, which is quoted. How can I add qoutes to the string?
 		local
 			hash: MD5
@@ -368,33 +368,54 @@ feature -- Digest computation
 --			cnonce_value := "%"0a4f113b%""
 
 			if
-				attached nonce_value as a_nonce_value and
-				attached nc_value as a_nc_value and
-				attached cnonce_value as a_cnonce_value and
-				attached qop_value as a_qop_value
+				attached ha1 as a_ha1 and
+				attached ha2 as a_ha2 and
+				attached nonce_value as a_nonce_value
 			then
-				create hash.make
+				if
+					attached nc_value as a_nc_value and
+					attached cnonce_value as a_cnonce_value and
+					attached qop_value as a_qop_value
+				then
+					-- Standard (for digest) computation of response
 
-				no := unquote_string (a_nonce_value)
-				nc := a_nc_value
-				cn := unquote_string (a_cnonce_value)
-				qo := a_qop_value
+					-- TODO Assert that qop is auth or auth-int
+					create hash.make
 
-				unhashed_response := ha1 + ":" + no + ":" + nc + ":" + cn + ":" + qo + ":" + ha2
-				hash.update_from_string (unhashed_response)
+					no := unquote_string (a_nonce_value)
+					nc := a_nc_value
+					cn := unquote_string (a_cnonce_value)
+					qo := a_qop_value
 
-				Result := hash.digest_as_string
+					unhashed_response := ha1 + ":" + no + ":" + nc + ":" + cn + ":" + qo + ":" + ha2
+					hash.update_from_string (unhashed_response)
 
-				Result.to_lower
+					Result := hash.digest_as_string
 
-				io.put_string ("*********Unhashed response: " + unhashed_response)
-				io.new_line
-				io.put_string ("*********Expected unquoted response: " + Result)
-				io.new_line
-			else
-				io.putstring ("Could not compute expected response. Something not attached.%N")
-			end
+					Result.to_lower
+
+					io.put_string ("Expected unquoted response: " + Result)
+					io.new_line
+				elseif not attached qop_value then
+					-- qop directive is not present.
+					-- Use construction for compatibility with RFC 2069
+
+					no := unquote_string (a_nonce_value)
+
+					create hash.make
+
+					unhashed_response := ha1 + ":" + no + ":" + ha2
+					hash.update_from_string (unhashed_response)
+
+					Result := hash.digest_as_string
+
+					Result.to_lower
+
+					io.put_string ("RFC 2069 mode. Expected unquoted response: " + Result)
+					io.new_line
+				end
 		end
+	end
 
 feature -- Access
 
@@ -464,7 +485,7 @@ feature -- Access
 
 feature -- Element change
 
-	set_Void_if_unquoted (s: detachable STRING_32)
+	set_Void_if_unquoted (s: detachable READABLE_STRING_32): detachable READABLE_STRING_32
 			-- Set `s' to Void if it is not quoted
 		do
 			if
