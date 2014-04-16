@@ -26,8 +26,12 @@ feature -- Initialization
 	make (a_http_authorization: detachable READABLE_STRING_8)
 			-- Initialize `Current'.
 			-- Parse authorization header.
-			-- Does NOT check for valid login!
-			-- TODO What should we do if argument is void?
+			--
+			-- TODO What should we do if
+			-- 		argument is void
+			--		empty
+			--		neither a Basic nor a Digest authorization
+			--		not a VALID Basic or Digest authorization (i.e., starts with "Basic" or "Digest", but does not have proper format)?
 		local
 			i, j: INTEGER
 			t, s: STRING_8
@@ -36,6 +40,8 @@ feature -- Initialization
 			l_md5: MD5
 		do
 			password := Void
+
+			-- Default also if neither Basic nor Digest. (TODO Check this. Is this ok?)
 			if a_http_authorization = Void then
 					-- Default: Basic
 				type := basic_auth_type
@@ -66,26 +72,59 @@ feature -- Initialization
 									(create {HTTP_AUTHORIZATION}.make_custom_auth (u, p, t)).http_authorization ~ http_authorization
 								end
 							end
-						else
-							check
-								t.same_string (Digest_auth_type)
-							end
+						elseif t.same_string (Digest_auth_type) then
 							type := Digest_auth_type
 
 							-- XXX Why do we know here that a_http_authorization is attached?
-							-- It needs to be attahed if it is used as an argument in get_header..., right?
-							response_value := get_header_value_by_key (a_http_authorization, "response")
-							login := get_header_value_by_key (a_http_authorization, "username")
-							realm_value := get_header_value_by_key (a_http_authorization, "realm")
-							nonce_value := get_header_value_by_key (a_http_authorization, "nonce")
-							uri_value := get_header_value_by_key (a_http_authorization, "uri")
-							qop_value := get_header_value_by_key (a_http_authorization, "qop")
-							nc_value := get_header_value_by_key (a_http_authorization, "nc")
-							cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
-							opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
+							-- XXX Find out difference between being void and being attached, lear more about void safety etc.
 
-							io.putstring ("HTTP_AUTHORIZATION.make(): Digest Authorization. To be implemented.%N")
-							to_implement ("HTTP Authorization %"digest%", not yet implemented")
+
+							-- Parse response
+							response_value := get_header_value_by_key (a_http_authorization, "response")
+
+							if
+								attached response_value as attached_response_value and then
+								(not (attached_response_value.count = 34) or
+								not attached_response_value.item (1).is_equal ('"') or
+								not attached_response_value.item (attached_response_value.count).is_equal ('"'))
+							then
+								-- Response is not valid, set it to void.
+								response_value := Void
+							end
+
+							-- Parse login
+							login := get_header_value_by_key (a_http_authorization, "username")
+							login := set_void_if_unquoted (login)
+
+							-- Parse realm
+							-- XXX Add further tests for validity of realm value.
+							realm_value := get_header_value_by_key (a_http_authorization, "realm")
+							realm_value := set_void_if_unquoted (realm_value)
+
+							-- Parse nonce
+							nonce_value := get_header_value_by_key (a_http_authorization, "nonce")
+							nonce_value := set_void_if_unquoted (nonce_value)
+
+							-- Parse uri
+							uri_value := get_header_value_by_key (a_http_authorization, "uri")
+
+							-- Parse qop
+							qop_value := get_header_value_by_key (a_http_authorization, "qop")
+							if
+								attached qop_value as attached_qop_value and then
+								not (attached_qop_value.is_equal ("%"auth%"") or attached_qop_value.is_equal ("%"auth-int%"")
+							then
+								qop_value := Void
+							end
+
+							-- TODO Parse nc
+							nc_value := get_header_value_by_key (a_http_authorization, "nc")
+
+							-- TODO Parse cnonce
+							cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
+
+							-- TODO Parse opaque
+							opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
 						end
 					end
 				end
@@ -235,6 +274,13 @@ feature -- Status report
 			Result implies (attached login as a_login and then valid_credentials.has (a_login))
 		end
 
+	is_quoted (s: STRING_32): BOOLEAN
+		-- Returns type iff `s' begins and ends with a quote sign.
+		do
+			-- Also test that lenght is greater than one, otherwise the string could consist of just one quote sign.
+			Result := s.starts_with ("%"") and s.ends_with ("%"") and (s.count >= 2)
+		end
+
 	debug_output: STRING_32
 			-- String that should be displayed in debugger to represent `Current'.
 		do
@@ -329,16 +375,6 @@ feature -- Digest computation
 			then
 				create hash.make
 
---				io.put_string ("*********nonce: " + a_nonce_value)
---				io.new_line
---				io.put_string ("*********nc: " + a_nc_value)
---				io.new_line
---				io.put_string ("*********cnonce: " + a_cnonce_value)
---				io.new_line
---				io.put_string ("*********qop: " + a_qop_value)
---				io.new_line
-
-
 				no := unquote_string (a_nonce_value)
 				nc := a_nc_value
 				cn := unquote_string (a_cnonce_value)
@@ -426,6 +462,21 @@ feature -- Access
 			end
 		end
 
+feature -- Element change
+
+	set_Void_if_unquoted (s: detachable STRING_32)
+			-- Set `s' to Void if it is not quoted
+		do
+			if
+				attached s as attached_s and then
+				not is_quoted (attached_s)
+			then
+				-- Login is not valid, set it to void.
+				Result := Void
+			else
+				Result := s
+			end
+		end
 
 feature -- Constants
 
