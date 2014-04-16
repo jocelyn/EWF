@@ -84,9 +84,13 @@ feature -- Initialization
 
 							if
 								attached response_value as attached_response_value and then
-								(not (attached_response_value.count = 34) or
-								not attached_response_value.item (1).is_equal ('"') or
-								not attached_response_value.item (attached_response_value.count).is_equal ('"'))
+								(
+									not (attached_response_value.count = 34) or
+									not attached_response_value.item (1).is_equal ('"') or
+									not attached_response_value.item (attached_response_value.count).is_equal ('"')
+									-- TODO Make sure that it is in hex format.
+								)
+
 							then
 								-- Response is not valid, set it to void.
 								response_value := Void
@@ -119,9 +123,12 @@ feature -- Initialization
 							end
 
 							-- TODO Parse algorithm
+							algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
 
 							-- TODO Parse nc
 							nc_value := get_header_value_by_key (a_http_authorization, "nc")
+							-- TODO Make sure that it is in hex format.
+							-- Make sure it has length 8.
 
 							-- TODO Parse cnonce
 							cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
@@ -206,6 +213,8 @@ feature -- Access
 
 	uri_value: detachable READABLE_STRING_32
 
+	algorithm_value: detachable READABLE_STRING_32
+
 feature -- Status report
 
 	is_basic: BOOLEAN
@@ -222,9 +231,9 @@ feature -- Status report
 
 	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]; m: READABLE_STRING_8; u: READABLE_STRING_8): BOOLEAN
 			-- Check authorization.
-			-- If authorization method unknown, deny access.
 			-- `m': Method
 			-- `u': Uri
+			-- TODO For digest, take into account: stale, nonce-count etc.
 			-- TODO Maybe give other parameter, for example: req
 		require
 			attached login
@@ -422,7 +431,7 @@ feature -- Digest computation
 
 feature -- Access
 
-	get_header_value_by_key(h: READABLE_STRING_8; k: STRING_8): STRING_8
+	get_header_value_by_key(h: READABLE_STRING_8; k: STRING_8): detachable READABLE_STRING_32
 			-- From header `h', get value associated to key `k'.
 			-- Note: Response could be quoted.
 			-- FIXME
@@ -433,7 +442,9 @@ feature -- Access
 			i := h.substring_index (" " + k + "=", 1)
 
 			if i = 0 then
-				create Result.make_empty
+				Result := Void
+
+				io.putstring ("Parsed " + k +": Void%N")
 			else
 				i := h.index_of ('=', i)
 
@@ -449,9 +460,9 @@ feature -- Access
 				end
 
 				Result := h.substring (i+1, j-1)
-			end
 
-			io.putstring ("Parsed " + k +": " + Result + "%N")
+				io.putstring ("Parsed " + k +": " + Result + "%N")
+			end
 		end
 
 	unquote_string(s: STRING_32): STRING_32
