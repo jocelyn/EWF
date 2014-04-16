@@ -210,11 +210,8 @@ feature -- Status report
 					attached realm_value as attached_realm_value and
 					attached response_value as attached_response_value
 				then
-					io.putstring ("----HTTP_AUTH.is_authorized: Login, realm, response attached.%N")
-					io.putstring ("----Logins:%N")
 
 					if attached valid_credentials.item (unquote_string (attached_login)) as attached_password then
-						io.putstring ("----HTTP_AUTH.is_authorized: Computing HA1%N")
 
 						HA1 := compute_hash_a1 (attached_login, attached_realm_value, attached_password)
 
@@ -278,9 +275,9 @@ feature -- Digest computation
 
 			Result.to_lower
 
-			io.put_string ("*********A1: " + A1)
-			io.new_line
-			io.put_string ("*********HA1: " + Result)
+--			io.put_string ("*********A1: " + A1)
+--			io.new_line
+			io.put_string ("HA1: " + Result)
 			io.new_line
 
 		end
@@ -296,9 +293,8 @@ feature -- Digest computation
 
 			create hash.make
 
-			io.put_string ("*********Compute A2 with uri: " + u)
-			io.new_line
-
+--			io.put_string ("*********Compute A2 with uri: " + u)
+--			io.new_line
 
 			hash.update_from_string (A2)
 
@@ -306,9 +302,9 @@ feature -- Digest computation
 
 			Result.to_lower
 
-			io.put_string ("*********A2: " + A2)
-			io.new_line
-			io.put_string ("*********HA2: " + Result)
+--			io.put_string ("*********A2: " + A2)
+--			io.new_line
+			io.put_string ("HA2: " + Result)
 			io.new_line
 		end
 
@@ -333,14 +329,14 @@ feature -- Digest computation
 			then
 				create hash.make
 
-				io.put_string ("*********nonce: " + a_nonce_value)
-				io.new_line
-				io.put_string ("*********nc: " + a_nc_value)
-				io.new_line
-				io.put_string ("*********cnonce: " + a_cnonce_value)
-				io.new_line
-				io.put_string ("*********qop: " + a_qop_value)
-				io.new_line
+--				io.put_string ("*********nonce: " + a_nonce_value)
+--				io.new_line
+--				io.put_string ("*********nc: " + a_nc_value)
+--				io.new_line
+--				io.put_string ("*********cnonce: " + a_cnonce_value)
+--				io.new_line
+--				io.put_string ("*********qop: " + a_qop_value)
+--				io.new_line
 
 
 				no := unquote_string (a_nonce_value)

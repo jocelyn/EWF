@@ -189,15 +189,6 @@ feature -- Basic operations
 			page: WSF_HTML_PAGE_RESPONSE
 			values: LINKED_LIST[STRING]
 		do
---			io.putstring ("DEMO_BASIC.handle_unauthorized")
---			io.put_new_line
---			io.putstring ("Request: ")
---			print(req)
---			io.put_new_line
---			io.putstring ("Response: ")
---			print(res)
---			io.put_new_line
-
 			create s.make_from_string (a_description)
 
 			append_html_login (req, s)
