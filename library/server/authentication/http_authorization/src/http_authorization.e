@@ -332,9 +332,7 @@ feature -- Digest computation
 			Result := hash.digest_as_string
 
 			Result.to_lower
-
---			io.put_string ("*********A1: " + A1)
---			io.new_line
+			
 			io.put_string ("HA1: " + Result)
 			io.new_line
 
@@ -351,19 +349,15 @@ feature -- Digest computation
 
 			create hash.make
 
---			io.put_string ("*********Compute A2 with uri: " + u)
---			io.new_line
-
 			hash.update_from_string (A2)
 
 			Result := hash.digest_as_string
 
 			Result.to_lower
 
---			io.put_string ("*********A2: " + A2)
---			io.new_line
 			io.put_string ("HA2: " + Result)
 			io.new_line
+
 		end
 
 	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8) : STRING_8
