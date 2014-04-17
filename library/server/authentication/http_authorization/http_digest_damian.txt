@@ -55,6 +55,8 @@ A2
 400 Bad request
   High priority
 
+Log login failures to detect potential attacks.
+
 
 
 Authentication-Info Header
