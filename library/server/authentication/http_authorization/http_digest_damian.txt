@@ -4,6 +4,27 @@ In the following, I try to summarize the various areas that http_degist requires
 
 WWW-Authenticate Response Header
 --------------------------------------------------------------
+
+digest-response  
+  = 1#( username | realm | nonce | digest-uri
+            | response | [ algorithm ] | [cnonce] |
+            [opaque] | [message-qop] |
+            [nonce-count]  | [auth-param] )
+
+  Make sure that the digset-response really has this format.
+  For example, allow LWS, not multiple times the same directive, etc.
+
+  TODO This BNF seems to be quite strange.
+  It allows for example the following:
+	username, username,
+  right?
+  Why are some directives (e.g. opaque) declared as optional? Does this make sense in this particular case?
+  Does this rule really state that the digest-response MUST have EXACTLY ONE of each of
+	username, realm, nonce, digest-uri, response,
+  and MUST have ZERO OR ONE of each of
+	algorithm, cnonce, opaque, message-qop, nonce-count, auth-para
+  ?
+
 nonce
   Provide "good" nonces.
   For now, we only use the same (arbitrary) nonce.
@@ -16,9 +37,7 @@ opaque
   Low priority.
 
 algorithm
-  For now, we only consider "MD5".
-  If this is done, include "MD5-sess".
-  Low priority.
+  Add support for MD5-sess
 
 stale
   Middle priority.
@@ -27,7 +46,7 @@ qop-options
   For now, we only use "auth".
   Later, we include "auth-int".
   Then, we also consider "qop" not being present.
-  Low priority.
+  High priority.
 
 
 
