@@ -78,8 +78,32 @@ feature -- Basic operations
 			auth: HTTP_AUTHORIZATION
 			l_authenticated_username: detachable READABLE_STRING_32
 			l_valid_credential: BOOLEAN
+			content_from_input: STRING_8
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
+
+			-- Read content from imput stream and see what it is.
+			create content_from_input.make (0);
+			req.read_input_data_into (content_from_input)
+
+			if attached content_from_input as attached_content and then (not attached_content.is_empty) then
+				io.putstring ("***************Content from input stream: " + content_from_input)
+				io.new_line
+			elseif attached content_from_input as attached_content and then content_from_input.is_empty then
+				io.putstring ("***************Content from input stream: empty")
+				io.new_line
+			else
+				io.putstring ("***************Content from input stream: not attached." + content_from_input)
+				io.new_line
+			end
+
+			if attached req.auth_type as attached_auth_type then
+				io.putstring ("req.auth_type: " + attached_auth_type.as_string_32)
+				io.new_line
+			else
+				io.putstring ("req.auth_type: not attached")
+				io.new_line
+			end
 
 			if attached req.http_authorization as l_http_auth then
 

@@ -124,6 +124,7 @@ feature -- Initialization
 
 							-- TODO Parse algorithm
 							algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
+							-- TODO Check that it is one of the algorithms supplied in the WWW_Authenticate response header.
 
 							-- TODO Parse nc
 							nc_value := get_header_value_by_key (a_http_authorization, "nc")
@@ -135,6 +136,8 @@ feature -- Initialization
 
 							-- TODO Parse opaque
 							opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
+							-- TODO Check that it is the opaque supplied in the WWW_Authenticate response header.
+							-- Also handle case where WWW_Authenticate did'n supply an opaque value.
 						end
 					end
 				end
@@ -232,7 +235,13 @@ feature -- Status report
 	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]; m: READABLE_STRING_8; u: READABLE_STRING_8): BOOLEAN
 			-- Check authorization.
 			-- `m': Method
-			-- `u': Uri
+			-- `u': Uri			
+			--
+			-- TODO Add arguments for the fields we supplied in the WWW-Authenticate header.
+			-- This must be done s.t. we can check whether the values received in this http-authorization are correct.
+			-- For example: If the http-authorization is a digest authorization, then the nonce contained in it
+			-- must be the same as the one we supplied in the corresponding WWW-Authenticate header.
+			--
 			-- TODO For digest, take into account: stale, nonce-count etc.
 			-- TODO Maybe give other parameter, for example: req
 		require
@@ -285,6 +294,8 @@ feature -- Status report
 		ensure
 			Result implies (attached login as a_login and then valid_credentials.has (a_login))
 		end
+
+--	contains_supplied_values(
 
 	is_quoted (s: STRING_32): BOOLEAN
 		-- Returns type iff `s' begins and ends with a quote sign.
