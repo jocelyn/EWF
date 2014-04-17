@@ -311,6 +311,9 @@ feature -- Status report
 			end
 		end
 
+	is_bad_request: BOOLEAN
+			-- If a directive or its value is improper, or required directives are missing, the proper response is 	400 Bad Request.
+
 feature -- Digest computation
 
 	compute_hash_A1 (u: READABLE_STRING_8; r: READABLE_STRING_8; p: READABLE_STRING_8): STRING_8
@@ -332,7 +335,7 @@ feature -- Digest computation
 			Result := hash.digest_as_string
 
 			Result.to_lower
-			
+
 			io.put_string ("HA1: " + Result)
 			io.new_line
 
