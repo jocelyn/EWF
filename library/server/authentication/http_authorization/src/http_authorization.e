@@ -232,6 +232,11 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
+	error_occurred: BOOLEAN
+			-- True, if there was a syntactical error in the digest-response.
+			-- If a directive or its value is improper, or required directives are missing,
+			-- the proper response is 400 Bad Request.
+
 	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]; m: READABLE_STRING_8; u: READABLE_STRING_8): BOOLEAN
 			-- Check authorization.
 			-- `m': Method

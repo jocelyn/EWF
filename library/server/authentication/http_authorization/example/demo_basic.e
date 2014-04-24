@@ -82,6 +82,7 @@ feature -- Basic operations
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
 
+
 			-- Read content from imput stream and see what it is.
 			create content_from_input.make (0);
 			req.read_input_data_into (content_from_input)
@@ -104,6 +105,9 @@ feature -- Basic operations
 				io.putstring ("req.auth_type: not attached")
 				io.new_line
 			end
+
+			print("content length of request: " + req.content_length_value.to_hex_string )
+			io.new_line
 
 			if attached req.http_authorization as l_http_auth then
 
@@ -241,6 +245,12 @@ feature -- Basic operations
 			print("page.header.string:%N")
 			PRINT(page.header.string)
 			io.new_line
+
+			print("page.body:%N")
+			print(page.body)
+			io.new_line
+
+			res.
 
 			res.send (page)
 		end
