@@ -364,7 +364,22 @@ feature -- Digest computation
 			hash: MD5
 			A2: READABLE_STRING_8
 		do
+
 			A2 := m + ":" + u
+
+			-- TODO
+--			if attached qop_value as attached_qop then
+--				if attached_qop.is_case_insensitive_equal ("auth") then
+--					A2 := m + ":" + u					
+--				elseif attached_qop.is_case_insensitive_equal ("auth-int") then
+--					A2 := m + ":" + u + req.
+--				else
+--					
+--				end
+--			else
+--				io.putstring ("TODO: qop not attached")
+--				io.new_line					
+--			end
 
 			create hash.make
 

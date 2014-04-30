@@ -82,6 +82,33 @@ feature -- Basic operations
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
 
+			-- Auth type
+			if attached req.auth_type as attached_auth_type then
+				io.putstring ("req.auth_type: " + attached_auth_type)
+			else
+				io.putstring ("req.auth_type: not attached.")
+			end
+			io.new_line
+
+
+			-- Input already read?			
+			io.putstring ("req.raw_input_data_recorded: " + req.raw_input_data_recorded.out)
+			io.new_line
+
+			-- Transfer encodeing?
+			if attached req.http_transfer_encoding as attached_transer_encoding then
+				io.putstring ("req.http_transfer_encoding: " + attached_transer_encoding)
+				io.new_line
+				io.putstring ("req.is_chunked: " + req.is_chunked_input.out)
+			else
+				io.putstring ("req.http_transfer_encoding: not attached.")
+			end
+			io.new_line
+
+			-- Remote addr?
+			io.putstring ("req.remote_addr: " + req.remote_addr)
+			io.new_line
+
 
 			-- Read content from imput stream and see what it is.
 			create content_from_input.make (0);
@@ -108,6 +135,8 @@ feature -- Basic operations
 
 			print("content length of request: " + req.content_length_value.to_hex_string )
 			io.new_line
+
+
 
 			if attached req.http_authorization as l_http_auth then
 
@@ -233,9 +262,9 @@ feature -- Basic operations
 			create values.make
 
 			values.force ("Digest realm=%"testrealm@host.com%"")
-			values.force ("qop=%"auth%"")
-			values.force ("nonce=%"dcd98b7102dd2f0e8b11d0f600bfb0c093%"")
-			values.force ("opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"")
+			values.force ("qop=%"" + server_qop + "%"")
+			values.force ("nonce=%"" + server_nonce + "%"")
+			values.force ("opaque=%"" + server_opaque + "%"")
 
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
@@ -250,10 +279,14 @@ feature -- Basic operations
 			print(page.body)
 			io.new_line
 
-			res.
-
 			res.send (page)
 		end
+
+feature -- Parameters
+
+	server_qop: STRING = "auth"
+	server_nonce: STRING = "dcd98b7102dd2f0e8b11d0f600bfb0c093"
+	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
 
 feature -- Helper
 
