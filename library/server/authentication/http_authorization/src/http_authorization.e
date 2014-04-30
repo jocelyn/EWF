@@ -394,6 +394,12 @@ feature -- Digest computation
 
 		end
 
+	cmpute_hash_A2_auth_int (req: WSF_REQUEST)
+			--
+		do
+
+		end
+
 	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8) : STRING_8
 			-- Computes UNQUOTED expected response.
 			-- TODO Compute expected response, which is quoted. How can I add qoutes to the string?
