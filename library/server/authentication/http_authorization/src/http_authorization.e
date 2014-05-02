@@ -78,6 +78,12 @@ feature -- Initialization
 							-- XXX Why do we know here that a_http_authorization is attached?
 							-- XXX Find out difference between being void and being attached, lear more about void safety etc.
 
+							-- TODO Improve parsing (be more restrictive).
+
+							-- What we do now: Try to parse the fields, and set them to the epmty string if they didn't match our
+							-- expectations.
+							-- NOTE: We do not set them to void any more.
+
 
 							-- Parse response
 							response_value := get_header_value_by_key (a_http_authorization, "response")
@@ -96,18 +102,20 @@ feature -- Initialization
 								response_value := Void
 							end
 
+							response_value := unquote_string (response_value)
+
 							-- Parse login
 							login := get_header_value_by_key (a_http_authorization, "username")
-							login := set_void_if_unquoted (login)
+							login := unquote_string (login)
 
 							-- Parse realm
 							-- XXX Add further tests for validity of realm value.
 							realm_value := get_header_value_by_key (a_http_authorization, "realm")
-							realm_value := set_void_if_unquoted (realm_value)
+							realm_value := unquote_string (realm_value)
 
 							-- Parse nonce
 							nonce_value := get_header_value_by_key (a_http_authorization, "nonce")
-							nonce_value := set_void_if_unquoted (nonce_value)
+							nonce_value := unquote_string (nonce_value)
 
 							-- Parse uri
 							uri_value := get_header_value_by_key (a_http_authorization, "uri")
@@ -124,6 +132,9 @@ feature -- Initialization
 
 							-- TODO Parse algorithm
 							algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
+							check
+								is_MD5: not attached algorithm_value as attached_algorithm_value or else (attached_algorithm_value.is_empty or attached_algorithm_value.is_case_insensitive_equal ("MD5"))
+							end
 							-- TODO Check that it is one of the algorithms supplied in the WWW_Authenticate response header.
 
 							-- TODO Parse nc
@@ -133,9 +144,11 @@ feature -- Initialization
 
 							-- TODO Parse cnonce
 							cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
+							cnonce_value := unquote_string (cnonce_value)
 
 							-- TODO Parse opaque
 							opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
+							opaque_value := unquote_string (opaque_value)
 							-- TODO Check that it is the opaque supplied in the WWW_Authenticate response header.
 							-- Also handle case where WWW_Authenticate did'n supply an opaque value.
 						end
@@ -237,10 +250,8 @@ feature -- Status report
 			-- If a directive or its value is improper, or required directives are missing,
 			-- the proper response is 400 Bad Request.
 
-	is_authorized(valid_credentials: STRING_TABLE [READABLE_STRING_32]; m: READABLE_STRING_8; u: READABLE_STRING_8): BOOLEAN
-			-- Check authorization.
-			-- `m': Method
-			-- `u': Uri			
+	is_authorized(server_username: READABLE_STRING_8; server_password: detachable READABLE_STRING_8; server_realm: detachable READABLE_STRING_8; server_nonce: detachable READABLE_STRING_8; server_method: detachable READABLE_STRING_8; server_uri: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): BOOLEAN
+			-- Check authorization.	
 			--
 			-- TODO Add arguments for the fields we supplied in the WWW-Authenticate header.
 			-- This must be done s.t. we can check whether the values received in this http-authorization are correct.
@@ -248,9 +259,14 @@ feature -- Status report
 			-- must be the same as the one we supplied in the corresponding WWW-Authenticate header.
 			--
 			-- TODO For digest, take into account: stale, nonce-count etc.
-			-- TODO Maybe give other parameter, for example: req
+			-- TODO uri may be changed by proxies. Which uri should we take, the one from the request or the one from the authorization-header?
+			-- TODO Do not take password as argument, hash instead...
+			-- TODO We still assume that qop=auth.
+			-- TODO Arrayed_lists if multiple alternatives (e.g. algorithm, qop...)
 		require
-			attached login
+			not attached entity_body
+			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
+			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
 		local
 			HA1: STRING_8
 			HA2: STRING_8
@@ -260,47 +276,34 @@ feature -- Status report
 				-- XXX When check for attachment, when for voidness? Difference?
 				if
 					attached password as attached_password and
-					attached login as attached_login
+					attached login as attached_login and
+					attached server_password as attached_server_password
 				then
-					if
-						attached valid_credentials.item (attached_login) as l_passwd
-					then
-						Result := attached_password.is_case_insensitive_equal (l_passwd)
-					end
+					Result := attached_password.is_case_insensitive_equal (attached_server_password) and attached_login.is_case_insensitive_equal (server_username)
 				end
 			elseif 	type.is_case_insensitive_equal (digest_auth_type) then
-				io.putstring ("----HTTP_AUTH.is_authorized: Digest%N")
 				if
-					attached login as attached_login and
 					attached realm_value as attached_realm_value and
-					attached response_value as attached_response_value
+					attached response_value as attached_response_value and
+					attached server_password as attached_server_password and
+					attached server_username as attached_server_username and
+					attached server_realm as attached_server_realm and
+					attached server_method as attached_server_method and
+					attached server_uri as attached_server_uri and
+					attached server_nonce as attached_server_nonce
 				then
+					HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, server_nonce)
 
-					if attached valid_credentials.item (unquote_string (attached_login)) as attached_password then
+					HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop)
 
-						HA1 := compute_hash_a1 (attached_login, attached_realm_value, attached_password)
+					response_expected := compute_expected_response (HA1, HA2, attached_server_nonce, server_qop, server_algorithm)
 
-						HA2 := compute_hash_a2(m, u)
-
-						response_expected := compute_expected_response (HA1, HA2)
-
-						Result :=response_expected.is_equal (unquote_string (attached_response_value))
-					else
-						io.putstring ("----HTTP_AUTH.is_authorized: Unvalid. Login: " + attached_login + "%N")
-					end
-				elseif not attached login then
-					io.putstring ("----HTTP_AUTH.is_authorized: Login not attached%N")
-				elseif not attached realm_value then
-					io.putstring ("----HTTP_AUTH.is_authorized: Realm not attached%N")
-				elseif not attached realm_value then
-					io.putstring ("----HTTP_AUTH.is_authorized: Response not attached%N")
+					Result := response_expected.is_equal (attached_response_value)
+				else
+					io.putstring ("Could not compute expected response since something was not attached.")
 				end
 			end
-		ensure
-			Result implies (attached login as a_login and then valid_credentials.has (a_login))
 		end
-
---	contains_supplied_values(
 
 	is_quoted (s: STRING_32): BOOLEAN
 		-- Returns type iff `s' begins and ends with a quote sign.
@@ -332,19 +335,21 @@ feature -- Status report
 
 feature -- Digest computation
 
-	compute_hash_A1 (u: READABLE_STRING_8; r: READABLE_STRING_8; p: READABLE_STRING_8): STRING_8
+	compute_hash_A1 (server_username: READABLE_STRING_8; server_realm: READABLE_STRING_8; server_password: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; server_nonce: detachable READABLE_STRING_8): STRING_8
 			-- Compute H(A1).
 			-- TODO When do we use which string class?
+			-- TODO Support for MD5-sess.
 		require
 			-- Necessary?
 			attached type and type /= Void and then	type.is_case_insensitive_equal (digest_auth_type)
+			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
 		local
 			hash: MD5
 			A1: READABLE_STRING_8
 		do
 			create hash.make
 
-			A1 := unquote_string(u) + ":" + unquote_string(r) + ":" + p
+			A1 := server_username + ":" + server_realm + ":" + server_password
 
 			hash.update_from_string (A1);
 
@@ -352,20 +357,20 @@ feature -- Digest computation
 
 			Result.to_lower
 
-			io.put_string ("HA1: " + Result)
-			io.new_line
-
+			io.putstring ("Computed HA1: " + Result + "%N")
 		end
 
-	compute_hash_A2 (m: READABLE_STRING_8; u: READABLE_STRING_8): STRING_8
+	compute_hash_A2 (server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8;  entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): STRING_8
 			-- Compute H(A2)
-			-- `m': Method, `u': uri
+			-- TODO Support auth-int
+		require
+			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
+			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
 		local
 			hash: MD5
 			A2: READABLE_STRING_8
 		do
-
-			A2 := m + ":" + u
+			A2 := server_method + ":" + server_uri
 
 			-- TODO
 --			if attached qop_value as attached_qop then
@@ -389,24 +394,19 @@ feature -- Digest computation
 
 			Result.to_lower
 
-			io.put_string ("HA2: " + Result)
-			io.new_line
-
+			io.putstring ("Computed HA2: " + Result + "%N")
 		end
 
-	cmpute_hash_A2_auth_int (req: WSF_REQUEST)
-			--
-		do
-
-		end
-
-	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8) : STRING_8
+	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; server_nonce: READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8) : STRING_8
 			-- Computes UNQUOTED expected response.
 			-- TODO Compute expected response, which is quoted. How can I add qoutes to the string?
+			-- TODO Support for
+		require
+			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
+			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
 		local
 			hash: MD5
 			unhashed_response: READABLE_STRING_8
-			no, nc, cn, qo: READABLE_STRING_8
 		do
 			create Result.make_empty
 
@@ -414,26 +414,21 @@ feature -- Digest computation
 --			cnonce_value := "%"0a4f113b%""
 
 			if
-				attached ha1 as a_ha1 and
-				attached ha2 as a_ha2 and
-				attached nonce_value as a_nonce_value
+				attached server_qop as attached_server_qop
 			then
 				if
-					attached nc_value as a_nc_value and
-					attached cnonce_value as a_cnonce_value and
-					attached qop_value as a_qop_value
+					attached nc_value as attached_nc_value and
+					attached cnonce_value as attached_cnonce_value
 				then
-					-- Standard (for digest) computation of response
+					-- Standard (for digest) computation of response.
 
-					-- TODO Assert that qop is auth or auth-int
 					create hash.make
 
-					no := unquote_string (a_nonce_value)
-					nc := a_nc_value
-					cn := unquote_string (a_cnonce_value)
-					qo := a_qop_value
+					unhashed_response := ha1 + ":" + server_nonce + ":" + attached_nc_value + ":" + attached_cnonce_value + ":" + attached_server_qop + ":" + ha2
 
-					unhashed_response := ha1 + ":" + no + ":" + nc + ":" + cn + ":" + qo + ":" + ha2
+					io.put_string ("Expected unhashed response: " + unhashed_response)
+					io.new_line
+
 					hash.update_from_string (unhashed_response)
 
 					Result := hash.digest_as_string
@@ -442,26 +437,25 @@ feature -- Digest computation
 
 					io.put_string ("Expected unquoted response: " + Result)
 					io.new_line
-				elseif not attached qop_value then
-					-- qop directive is not present.
-					-- Use construction for compatibility with RFC 2069
-
-					no := unquote_string (a_nonce_value)
-
-					create hash.make
-
-					unhashed_response := ha1 + ":" + no + ":" + ha2
-					hash.update_from_string (unhashed_response)
-
-					Result := hash.digest_as_string
-
-					Result.to_lower
-
-					io.put_string ("RFC 2069 mode. Expected unquoted response: " + Result)
-					io.new_line
 				end
+			else
+				-- qop directive is not present.
+				-- Use construction for compatibility with RFC 2069
+
+				create hash.make
+
+				unhashed_response := ha1 + ":" + server_nonce + ":" + ha2
+
+				hash.update_from_string (unhashed_response)
+
+				Result := hash.digest_as_string
+
+				Result.to_lower
+
+				io.put_string ("RFC 2069 mode. Expected unquoted response: " + Result)
+				io.new_line
+			end
 		end
-	end
 
 feature -- Access
 
@@ -499,52 +493,62 @@ feature -- Access
 			end
 		end
 
-	unquote_string(s: STRING_32): STRING_32
+	unquote_string(s: detachable READABLE_STRING_32): STRING_32
 			-- Returns string without quotes, or empty string if string is not quoted.
+		require
+			-- argument is actually quoted.
 		local
 			i, j: INTEGER
 			rs: STRING_32
 		do
-			create rs.make_from_string (s)
+			if
+				attached s as attached_s
+			then
+				create rs.make_from_string (attached_s)
 
-			rs.left_adjust
-			rs.right_adjust
+				rs.left_adjust
+				rs.right_adjust
 
-			i := rs.index_of ('"', 1)
-			j := rs.index_of ('"', i+1)
+				i := rs.index_of ('"', 1)
+				j := rs.index_of ('"', i+1)
 
-			if i+1 > j-1 or i = 0 or j = 0 then
+				if i+1 > j-1 or i = 0 or j = 0 then
+					io.putstring ("Not able to unquote string: " + attached_s + "%N")
+					create Result.make_empty
+				else
+					Result := rs.substring (i+1, j-1)
+				end
+			else
+				io.putstring ("Not able to unquote string: Void%N")
 				create Result.make_empty
-			else
-				Result := rs.substring (i+1, j-1)
 			end
 		end
 
-	get_unquoted_string(s: STRING_32) : STRING_32
-			-- If the original string contains quotes, then remove the quotes.
-		do
-			if s.has ('"') then
-				Result := unquote_string (s)
-			else
-				Result := s
-			end
-		end
+--	get_unquoted_string(s: STRING_32) : STRING_32
+--			-- If the original string contains quotes, then remove the quotes.
+--		do
+--			if s.has ('"') then
+--				Result := unquote_string (s)
+--			else
+--				Result := s
+--			end
+--		end
 
 feature -- Element change
 
-	set_Void_if_unquoted (s: detachable READABLE_STRING_32): detachable READABLE_STRING_32
-			-- Set `s' to Void if it is not quoted
-		do
-			if
-				attached s as attached_s and then
-				not is_quoted (attached_s)
-			then
-				-- Login is not valid, set it to void.
-				Result := Void
-			else
-				Result := s
-			end
-		end
+--	set_Void_if_unquoted (s: detachable READABLE_STRING_32): detachable READABLE_STRING_32
+--			-- Set `s' to Void if it is not quoted
+--		do
+--			if
+--				attached s as attached_s and then
+--				not is_quoted (attached_s)
+--			then
+--				-- Login is not valid, set it to void.
+--				Result := Void
+--			else
+--				Result := s
+--			end
+--		end
 
 feature -- Constants
 

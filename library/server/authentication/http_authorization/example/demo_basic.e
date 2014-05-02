@@ -75,10 +75,14 @@ feature -- Basic operations
 	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- <Precursor>
 		local
-			auth: HTTP_AUTHORIZATION
 			l_authenticated_username: detachable READABLE_STRING_32
 			l_valid_credential: BOOLEAN
 			content_from_input: STRING_8
+			header: HTTP_HEADER
+			iter: ITERABLE [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]
+			auth: HTTP_AUTHORIZATION
+			arr: ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]
+			auth_successful: BOOLEAN
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
 
@@ -90,55 +94,39 @@ feature -- Basic operations
 			end
 			io.new_line
 
-
-			-- Input already read?			
-			io.putstring ("req.raw_input_data_recorded: " + req.raw_input_data_recorded.out)
-			io.new_line
-
-			-- Transfer encodeing?
-			if attached req.http_transfer_encoding as attached_transer_encoding then
-				io.putstring ("req.http_transfer_encoding: " + attached_transer_encoding)
-				io.new_line
-				io.putstring ("req.is_chunked: " + req.is_chunked_input.out)
-			else
-				io.putstring ("req.http_transfer_encoding: not attached.")
-			end
-			io.new_line
-
-			-- Remote addr?
-			io.putstring ("req.remote_addr: " + req.remote_addr)
-			io.new_line
-
-
-			-- Read content from imput stream and see what it is.
-			create content_from_input.make (0);
-			req.read_input_data_into (content_from_input)
-
-			if attached content_from_input as attached_content and then (not attached_content.is_empty) then
-				io.putstring ("***************Content from input stream: " + content_from_input)
-				io.new_line
-			elseif attached content_from_input as attached_content and then content_from_input.is_empty then
-				io.putstring ("***************Content from input stream: empty")
-				io.new_line
-			else
-				io.putstring ("***************Content from input stream: not attached." + content_from_input)
-				io.new_line
-			end
-
-			if attached req.auth_type as attached_auth_type then
-				io.putstring ("req.auth_type: " + attached_auth_type.as_string_32)
-				io.new_line
-			else
-				io.putstring ("req.auth_type: not attached")
-				io.new_line
-			end
-
 			print("content length of request: " + req.content_length_value.to_hex_string )
 			io.new_line
 
 
 
 			if attached req.http_authorization as l_http_auth then
+
+--				-- Try to parse the request
+				create header.make_from_raw_header_data (l_http_auth)
+				iter := header.to_name_value_iterable
+
+				if attached {ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]} header.to_name_value_iterable as attached_array then
+					from
+						attached_array.start
+						io.putstring ("++++++++++")
+						io.put_new_line
+					until
+						attached_array.exhausted
+					loop
+						-- Print key-value pair
+						if attached attached_array.item.at (1) as first then
+							io.putstring ("First: " + first.out + "%N")
+						else
+							io.putstring ("First: not attached%N")
+						end
+
+						attached_array.forth
+					end
+
+					io.putstring ("++++++++++")
+					io.put_new_line
+				end
+
 
 				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
 				io.put_new_line
@@ -149,27 +137,41 @@ feature -- Basic operations
 
 				create auth.make (l_http_auth)
 
---				if attached auth.login as l_login and then is_valid_credential (l_login, auth.password) then
---					l_authenticated_username := auth.login
---				else
---					l_invalid_credential := True
---				end
+				if auth.error_occurred then
+					io.putstring ("Error while creation of http_auth.")
+				else
+					-- Test whether we know the username.
+					if
+						attached auth.login as attached_auth_login and then not attached_auth_login.is_empty
+					then
+						if
+							attached valid_credentials.item (attached_auth_login) as attached_auth_password
+						then
+							-- We have everything we need to verify the received response.
 
-				l_valid_credential := auth.is_authorized (valid_credentials, req.request_method, req.request_uri)
+							-- TODO Distinguish between basic and digest.
+							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, req.request_uri, server_algorithm, void, server_qop)
 
-				-- TODO replace with line above
---				l_valid_credential := auth.is_authorized (valid_credentials, req.request_method, "/dir/index.html")
+							-- TODO Replace this with above
+--							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
 
-				if attached auth.login as attached_auth_login then
-					l_authenticated_username := auth.get_unquoted_string (attached_auth_login)
+							l_authenticated_username := attached_auth_login
+
+							io.putstring ("Result of is_authorized: " + auth_successful.out + "%N")
+						else
+							io.putstring ("We don't know this login: " + attached_auth_login)
+						end
+					else
+						io.putstring ("HTTP_AUTHORIZATION was not able to parse login successuflly.%N")
+					end
+
 				end
-
 			else
 				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
 				io.put_new_line
 			end
 
-			if not l_valid_credential then
+			if not auth_successful then
 				handle_unauthorized ("ERROR: Invalid credential", req, res)
 			else
 				if l_authenticated_username /= Void then
@@ -261,10 +263,11 @@ feature -- Basic operations
 
 			create values.make
 
-			values.force ("Digest realm=%"testrealm@host.com%"")
+			values.force ("Digest realm=%"" + server_realm +"%"")
 			values.force ("qop=%"" + server_qop + "%"")
 			values.force ("nonce=%"" + server_nonce + "%"")
 			values.force ("opaque=%"" + server_opaque + "%"")
+			values.force ("algorithm=" + server_algorithm + "")
 
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
@@ -284,9 +287,14 @@ feature -- Basic operations
 
 feature -- Parameters
 
+	-- TODO Also support auth-int.	
+	-- TODO If we suggest multiple alternatives, use an arrayed_list istead.
 	server_qop: STRING = "auth"
 	server_nonce: STRING = "dcd98b7102dd2f0e8b11d0f600bfb0c093"
 	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
+	server_algorithm: STRING = "MD5"
+	server_realm: STRING = "testrealm@host.com"
+
 
 feature -- Helper
 
