@@ -294,9 +294,9 @@ feature -- Status report
 				then
 					HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, server_nonce)
 
-					HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop)
+					HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop, false)
 
-					response_expected := compute_expected_response (HA1, HA2, attached_server_nonce, server_qop, server_algorithm)
+					response_expected := compute_expected_response (HA1, HA2, attached_server_nonce, server_qop, server_algorithm, nc_value, cnonce_value)
 
 					Result := response_expected.is_equal (attached_response_value)
 				else
@@ -360,31 +360,22 @@ feature -- Digest computation
 			io.putstring ("Computed HA1: " + Result + "%N")
 		end
 
-	compute_hash_A2 (server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8;  entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): STRING_8
+	compute_hash_A2 (server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8;  entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; for_auth_info: BOOLEAN): STRING_8
 			-- Compute H(A2)
 			-- TODO Support auth-int
 		require
 			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
 			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
+			no_entity_body: not attached entity_body or else entity_body.is_empty
 		local
 			hash: MD5
 			A2: READABLE_STRING_8
 		do
-			A2 := server_method + ":" + server_uri
-
-			-- TODO
---			if attached qop_value as attached_qop then
---				if attached_qop.is_case_insensitive_equal ("auth") then
---					A2 := m + ":" + u					
---				elseif attached_qop.is_case_insensitive_equal ("auth-int") then
---					A2 := m + ":" + u + req.
---				else
---					
---				end
---			else
---				io.putstring ("TODO: qop not attached")
---				io.new_line					
---			end
+			if for_auth_info then
+				A2 := ":" + server_uri
+			else
+				A2 := server_method + ":" + server_uri
+			end
 
 			create hash.make
 
@@ -397,7 +388,7 @@ feature -- Digest computation
 			io.putstring ("Computed HA2: " + Result + "%N")
 		end
 
-	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; server_nonce: READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8) : STRING_8
+	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; server_nonce: READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_32; a_cnonce: detachable READABLE_STRING_32) : STRING_8
 			-- Computes UNQUOTED expected response.
 			-- TODO Compute expected response, which is quoted. How can I add qoutes to the string?
 			-- TODO Support for
@@ -417,8 +408,8 @@ feature -- Digest computation
 				attached server_qop as attached_server_qop
 			then
 				if
-					attached nc_value as attached_nc_value and
-					attached cnonce_value as attached_cnonce_value
+					attached a_nc as attached_nc_value and
+					attached a_cnonce as attached_cnonce_value
 				then
 					-- Standard (for digest) computation of response.
 

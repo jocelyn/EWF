@@ -149,6 +149,9 @@ feature -- Basic operations
 						then
 							-- We have everything we need to verify the received response.
 
+							-- TODO Check that the field "uri" of the authorization-header is ok.
+							-- TODO Then use this field in the is_authorized.
+
 							-- TODO Distinguish between basic and digest.
 							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, req.request_uri, server_algorithm, void, server_qop)
 
@@ -158,6 +161,12 @@ feature -- Basic operations
 							l_authenticated_username := attached_auth_login
 
 							io.putstring ("Result of is_authorized: " + auth_successful.out + "%N")
+
+							-- TODO Replace this.
+							-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
+							if auth_successful then
+								handle_authenticated (auth, req, res)
+							end
 						else
 							io.putstring ("We don't know this login: " + attached_auth_login)
 						end
@@ -175,7 +184,7 @@ feature -- Basic operations
 				handle_unauthorized ("ERROR: Invalid credential", req, res)
 			else
 				if l_authenticated_username /= Void then
-					handle_authenticated (l_authenticated_username, req, res)
+					-- TODO We would like to call "handle_authenticated" here.
 				elseif req.path_info.same_string_general ("/login") then
 					handle_unauthorized ("Please provide credential ...", req, res)
 				elseif req.path_info.starts_with_general ("/protected/") then
@@ -187,33 +196,102 @@ feature -- Basic operations
 			end
 		end
 
-	handle_authenticated (a_username: READABLE_STRING_32; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_authenticated (auth: HTTP_AUTHORIZATION; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- User `a_username' is authenticated, execute request `req' with response `res'.
 		require
-			valid_username: not a_username.is_empty
-			known_username: is_known_login (a_username)
+			valid_username: attached auth.login as attached_login and then not attached_login.is_empty
+			known_username: is_known_login (attached_login)
+			auth_exists_and_authorized: attached auth and then not auth.is_bad_request
 		local
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
+			values: LINKED_LIST[STRING]
+			rspauth: STRING_8
+			HA1, HA2: STRING_8
 		do
 			io.putstring ("DEMO_BASIC.handle_authenticated")
 			io.put_new_line
 
-			create s.make_empty
+			if attached auth as attached_auth and then
+				attached attached_auth.login as attached_login
+			then
+				create s.make_empty
 
-			append_html_header (req, s)
+				append_html_header (req, s)
 
-			s.append ("<p>The authenticated user is <strong>")
-			s.append (html_encoder.general_encoded_string (a_username))
-			s.append ("</strong> ...</p>")
+				s.append ("<p>The authenticated user is <strong>")
+				s.append (html_encoder.general_encoded_string (attached_login))
+				s.append ("</strong> ...</p>")
 
-			append_html_menu (a_username, req, s)
-			append_html_logout (a_username, req, s)
-			append_html_footer (req, s)
+				append_html_menu (attached_login, req, s)
+				append_html_logout (attached_login, req, s)
+				append_html_footer (req, s)
 
-			create page.make
-			page.set_body (s)
-			res.send (page)
+				create page.make
+
+				if attached_auth.is_digest then
+					-- Add Authentication-Info header
+					create values.make
+
+					if attached attached_auth.qop_value as attached_qop and then not attached_qop.is_empty then
+						check
+							is_auth: attached_qop.is_case_insensitive_equal ("auth")
+						end
+
+						values.force ("qop=%"" + attached_qop + "%"")
+
+						check
+							is_cnonce_attached: attached attached_auth.cnonce_value as attached_cnonce and then not attached_cnonce.is_empty
+							is_nc_attached: attached attached_auth.nc_value as attached_nc and then not attached_nc.is_empty
+						end
+					end
+
+					if attached attached_auth.cnonce_value as attached_cnonce and then not attached_cnonce.is_empty then
+						values.force ("cnonce=%"" + attached_cnonce + "%"")
+					end
+
+					if attached attached_auth.nc_value as attached_nc and then not attached_nc.is_empty then
+						values.force ("nc=%"" + attached_nc + "%"")
+					end
+
+					if
+						attached attached_auth.realm_value as attached_realm_value and
+						attached valid_credentials.item (attached_login) as attached_server_password and
+						attached server_realm as attached_server_realm and
+						attached req.request_method as attached_server_method and
+						attached req.request_method as attached_server_uri and
+						attached server_nonce as attached_server_nonce
+					then
+						HA1 := attached_auth.compute_hash_a1 (attached_login, attached_server_realm, attached_server_password, server_algorithm, server_nonce)
+
+						HA2 := attached_auth.compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, void, server_qop, true)
+
+						rspauth := attached_auth.compute_expected_response (HA1, HA2, server_nonce, server_qop, server_algorithm, attached_auth.nc_value, attached_auth.cnonce_value)
+
+						-- TODO Replace
+						-- TODO What happens rspauth is wrong?
+--						values.force ("rspauth=%"" + "abcd" + "%"")
+
+
+						values.force ("rspauth=%"" + rspauth + "%"")
+					end
+
+					-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
+					page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_authentication_info, values, ", ")
+				end
+
+				page.set_body (s)
+
+
+				print("page.header.string:%N")
+				PRINT(page.header.string)
+				io.new_line
+
+				res.send (page)
+			else
+				-- TODO This cannot happen...
+				io.putstring ("ERROR: This should not happen.")
+			end
 		end
 
 	handle_anonymous (req: WSF_REQUEST; res: WSF_RESPONSE)
@@ -360,5 +438,4 @@ feature -- Helper
 				s.append ("</pre>")
 			end
 		end
-
 end
