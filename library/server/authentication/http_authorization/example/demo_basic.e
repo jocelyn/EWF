@@ -350,6 +350,9 @@ feature -- Basic operations
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 
+--			-- ETag
+--			page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_etag, "%"686897696a7c876b7e%"")
+
 			page.set_body (s)
 
 			print("page.header.string:%N")
