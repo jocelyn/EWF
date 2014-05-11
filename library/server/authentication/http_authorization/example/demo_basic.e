@@ -139,15 +139,15 @@ feature -- Basic operations
 --				end
 
 
-				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
-				io.put_new_line
+--				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
+--				io.put_new_line
 --				io.putstring ("http authorization header of request:")
 --				io.put_new_line
 --				print(l_http_auth)
 --				io.put_new_line
 
 				-- Once, add a nonce, s.t. we can test stale
-				add_nonce_once
+--				add_nonce_once
 
 				create auth.make (l_http_auth)
 
@@ -171,14 +171,14 @@ feature -- Basic operations
 
 							auth_stale := auth.stale
 
-							io.putstring ("*/*/*/*/* stale: " + auth_stale.out + "%N")
+							io.putstring ("Stale: " + auth_stale.out + "%N")
 
 							-- TODO Replace this with above
 --							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
 
 							l_authenticated_username := attached_auth_login
 
-							io.putstring ("Result of is_authorized: " + auth_successful.out + "%N")
+							io.putstring ("Is authorized: " + auth_successful.out + "%N")
 
 							-- TODO Replace this.
 							-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
@@ -194,8 +194,8 @@ feature -- Basic operations
 
 				end
 			else
-				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
-				io.put_new_line
+--				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
+--				io.put_new_line
 			end
 
 			if not auth_successful then
@@ -301,7 +301,7 @@ feature -- Basic operations
 				page.set_body (s)
 
 
---				print("page.header.string:%N")
+				print("page.header.string:%N")
 				PRINT(page.header.string)
 				io.new_line
 
@@ -486,6 +486,7 @@ feature -- Nonce
 		-- Make method ONCE ADD NONCE.
 		add_nonce_once
 			once
+				io.putstring ("Called add_nonce_once%N")
 				server_nonce_list.force (getfreshnonce)
 			end
 

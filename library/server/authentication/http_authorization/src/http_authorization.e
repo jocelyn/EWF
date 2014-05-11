@@ -272,6 +272,7 @@ feature -- Status report
 			HA1: STRING_8
 			HA2: STRING_8
 			response_expected: STRING_8
+			found: BOOLEAN
 		do
 			if 	type.is_case_insensitive_equal (basic_auth_type) then
 				-- XXX When check for attachment, when for voidness? Difference?
@@ -295,6 +296,15 @@ feature -- Status report
 					attached nonce_value as attached_nonce_value
 				then
 
+						from
+							attached_server_nonce_list.start
+						until
+							attached_server_nonce_list.exhausted
+						loop
+
+							found := found or attached_server_nonce_list.item.is_case_insensitive_equal (attached_nonce_value)
+							attached_server_nonce_list.forth
+						end
 					if
 						attached_server_nonce_list.last.is_case_insensitive_equal (attached_nonce_value)
 					then
@@ -306,7 +316,7 @@ feature -- Status report
 
 						Result := response_expected.is_equal (attached_response_value)
 					elseif
-						attached_server_nonce_list.has(attached_nonce_value)
+						found
 						-- FIXME
 					then
 						io.putstring ("Result could be stale...%N")
@@ -321,10 +331,6 @@ feature -- Status report
 
 						-- Result is false anyway....
 					else
-						check
-							unknown: not attached_server_nonce_list.has(attached_nonce_value)
-						end
-
 						io.putstring ("We don't know this nonce:%N   " + attached_nonce_value + ".%N")
 						io.putstring ("We only know those:%N")
 
@@ -400,7 +406,7 @@ feature -- Digest computation
 
 			Result.to_lower
 
-			io.putstring ("Computed HA1: " + Result + "%N")
+--			io.putstring ("Computed HA1: " + Result + "%N")
 		end
 
 	compute_hash_A2 (server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8;  entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; for_auth_info: BOOLEAN): STRING_8
@@ -428,7 +434,7 @@ feature -- Digest computation
 
 			Result.to_lower
 
-			io.putstring ("Computed HA2: " + Result + "%N")
+--			io.putstring ("Computed HA2: " + Result + "%N")
 		end
 
 	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; server_nonce: READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_32; a_cnonce: detachable READABLE_STRING_32) : STRING_8
@@ -460,7 +466,7 @@ feature -- Digest computation
 
 					unhashed_response := ha1 + ":" + server_nonce + ":" + attached_nc_value + ":" + attached_cnonce_value + ":" + attached_server_qop + ":" + ha2
 
-					io.put_string ("Expected unhashed response: " + unhashed_response)
+--					io.put_string ("Expected unhashed response: " + unhashed_response)
 					io.new_line
 
 					hash.update_from_string (unhashed_response)
@@ -469,8 +475,8 @@ feature -- Digest computation
 
 					Result.to_lower
 
-					io.put_string ("Expected unquoted response: " + Result)
-					io.new_line
+--					io.put_string ("Expected unquoted response: " + Result)
+--					io.new_line
 				end
 			else
 				-- qop directive is not present.
