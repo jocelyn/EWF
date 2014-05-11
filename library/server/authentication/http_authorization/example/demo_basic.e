@@ -1,5 +1,5 @@
 note
-	description : "simple application root class"
+	description : "simple application root class. This demo is for just one client!"
 	date        : "$Date$"
 	revision    : "$Revision$"
 
@@ -29,7 +29,9 @@ feature {NONE} -- Initialization
 
 			init_private_key
 
-			server_nonce := getfreshnonce
+--			server_nonce := getfreshnonce
+
+			create server_nonce_list.make (0)
 		end
 
 feature -- Credentials
@@ -87,6 +89,7 @@ feature -- Basic operations
 			auth: HTTP_AUTHORIZATION
 			arr: ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]
 			auth_successful: BOOLEAN
+			auth_stale: BOOLEAN
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
 
@@ -95,23 +98,23 @@ feature -- Basic operations
 --			init_private_key
 
 			-- Auth type
-			if attached req.auth_type as attached_auth_type then
-				io.putstring ("req.auth_type: " + attached_auth_type)
-			else
-				io.putstring ("req.auth_type: not attached.")
-			end
-			io.new_line
+--			if attached req.auth_type as attached_auth_type then
+--				io.putstring ("req.auth_type: " + attached_auth_type)
+--			else
+--				io.putstring ("req.auth_type: not attached.")
+--			end
+--			io.new_line
 
-			print("content length of request: " + req.content_length_value.to_hex_string )
-			io.new_line
+--			print("content length of request: " + req.content_length_value.to_hex_string )
+--			io.new_line
 
 
 
 			if attached req.http_authorization as l_http_auth then
 
 --				-- Try to parse the request
-				create header.make_from_raw_header_data (l_http_auth)
-				iter := header.to_name_value_iterable
+--				create header.make_from_raw_header_data (l_http_auth)
+--				iter := header.to_name_value_iterable
 
 --				if attached {ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]} header.to_name_value_iterable as attached_array then
 --					from
@@ -138,10 +141,13 @@ feature -- Basic operations
 
 				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
 				io.put_new_line
-				io.putstring ("http authorization header of request:")
-				io.put_new_line
-				print(l_http_auth)
-				io.put_new_line
+--				io.putstring ("http authorization header of request:")
+--				io.put_new_line
+--				print(l_http_auth)
+--				io.put_new_line
+
+				-- Once, add a nonce, s.t. we can test stale
+				add_nonce_once
 
 				create auth.make (l_http_auth)
 
@@ -161,7 +167,11 @@ feature -- Basic operations
 							-- TODO Then use this field in the is_authorized.
 
 							-- TODO Distinguish between basic and digest.
-							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, req.request_uri, server_algorithm, void, server_qop)
+							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
+
+							auth_stale := auth.stale
+
+							io.putstring ("*/*/*/*/* stale: " + auth_stale.out + "%N")
 
 							-- TODO Replace this with above
 --							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
@@ -189,15 +199,15 @@ feature -- Basic operations
 			end
 
 			if not auth_successful then
-				handle_unauthorized ("ERROR: Invalid credential", req, res)
+				handle_unauthorized ("ERROR: Invalid credential", req, res, auth_stale)
 			else
 				if l_authenticated_username /= Void then
 					-- TODO We would like to call "handle_authenticated" here.
 				elseif req.path_info.same_string_general ("/login") then
-					handle_unauthorized ("Please provide credential ...", req, res)
+					handle_unauthorized ("Please provide credential ...", req, res, auth_stale)
 				elseif req.path_info.starts_with_general ("/protected/") then
 						-- any "/protected/*" url
-					handle_unauthorized ("Protected area, please sign in before", req, res)
+					handle_unauthorized ("Protected area, please sign in before", req, res, auth_stale)
 				else
 					handle_anonymous (req, res)
 				end
@@ -268,13 +278,13 @@ feature -- Basic operations
 						attached server_realm as attached_server_realm and
 						attached req.request_method as attached_server_method and
 						attached req.request_method as attached_server_uri and
-						attached server_nonce as attached_server_nonce
+						attached server_nonce_list as attached_server_nonce_list
 					then
-						HA1 := attached_auth.compute_hash_a1 (attached_login, attached_server_realm, attached_server_password, server_algorithm, server_nonce)
+						HA1 := attached_auth.compute_hash_a1 (attached_login, attached_server_realm, attached_server_password, server_algorithm, server_nonce_list.last)
 
 						HA2 := attached_auth.compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, void, server_qop, true)
 
-						rspauth := attached_auth.compute_expected_response (HA1, HA2, server_nonce, server_qop, server_algorithm, attached_auth.nc_value, attached_auth.cnonce_value)
+						rspauth := attached_auth.compute_expected_response (HA1, HA2, server_nonce_list.last, server_qop, server_algorithm, attached_auth.nc_value, attached_auth.cnonce_value)
 
 						-- TODO Replace
 						-- TODO What happens rspauth is wrong?
@@ -291,7 +301,7 @@ feature -- Basic operations
 				page.set_body (s)
 
 
-				print("page.header.string:%N")
+--				print("page.header.string:%N")
 				PRINT(page.header.string)
 				io.new_line
 
@@ -325,14 +335,16 @@ feature -- Basic operations
 			res.send (page)
 		end
 
-	handle_unauthorized (a_description: STRING; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_unauthorized (a_description: STRING; req: WSF_REQUEST; res: WSF_RESPONSE; stale: BOOLEAN)
 			-- Restricted page, authenticated user is required.
 			-- Send `a_description' as part of the response.
+			-- TODO Result could be stale.
 		local
 			h: HTTP_HEADER
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
 			values: LINKED_LIST[STRING]
+			new_nonce: STRING
 		do
 			create s.make_from_string (a_description)
 
@@ -351,10 +363,22 @@ feature -- Basic operations
 
 			values.force ("Digest realm=%"" + server_realm +"%"")
 			values.force ("qop=%"" + server_qop + "%"")
-			values.force ("nonce=%"" + server_nonce + "%"")
+
+			-- Get a fresh nonce.
+			new_nonce := getfreshnonce
+
+			server_nonce_list.force (new_nonce)
+
+			values.force ("nonce=%"" + new_nonce + "%"")
 			values.force ("opaque=%"" + server_opaque + "%"")
 			values.force ("algorithm=" + server_algorithm + "")
 
+			-- Stale
+			if stale then
+				io.putstring ("Nonce was stale.%N")
+
+				values.force ("stale=true")
+			end
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 
@@ -363,13 +387,13 @@ feature -- Basic operations
 
 			page.set_body (s)
 
-			print("page.header.string:%N")
+--			print("page.header.string:%N")
 			PRINT(page.header.string)
 			io.new_line
 
-			print("page.body:%N")
-			print(page.body)
-			io.new_line
+--			print("page.body:%N")
+--			print(page.body)
+--			io.new_line
 
 			res.send (page)
 		end
@@ -379,10 +403,12 @@ feature -- Parameters
 	-- TODO Also support auth-int.	
 	-- TODO If we suggest multiple alternatives, use an arrayed_list istead.
 	server_qop: STRING = "auth"
-	server_nonce: STRING
+--	server_nonce: STRING
 	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
 	server_algorithm: STRING = "MD5"
 	server_realm: STRING = "testrealm@host.com"
+
+	server_nonce_list: ARRAYED_LIST[STRING]
 
 	private_key: INTEGER_32
 
@@ -413,7 +439,7 @@ feature -- Nonce
 
 			time_string := http_time.string
 
-			io.putstring ("Time: " + time_string + "%N")
+--			io.putstring ("Time: " + time_string + "%N")
 
 			hash.update_from_string (time_string + ":" + private_key.out)
 
@@ -425,7 +451,7 @@ feature -- Nonce
 
 			Result := base64_encoder.encoded_string (Result)
 
-			io.putstring ("Nonce: " + Result + "%N")
+--			io.putstring ("Nonce: " + Result + "%N")
 		end
 
 
@@ -454,6 +480,14 @@ feature -- Nonce
 			io.putstring ("Private key: " + private_key.out + "%N")
 		end
 
+
+
+		-- TODO Test by simply adding a nonce to the server list.
+		-- Make method ONCE ADD NONCE.
+		add_nonce_once
+			once
+				server_nonce_list.force (getfreshnonce)
+			end
 
 
 feature -- Helper

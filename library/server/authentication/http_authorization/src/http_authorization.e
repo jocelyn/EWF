@@ -251,7 +251,7 @@ feature -- Status report
 			-- If a directive or its value is improper, or required directives are missing,
 			-- the proper response is 400 Bad Request.
 
-	is_authorized(server_username: READABLE_STRING_8; server_password: detachable READABLE_STRING_8; server_realm: detachable READABLE_STRING_8; server_nonce: detachable READABLE_STRING_8; server_method: detachable READABLE_STRING_8; server_uri: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): BOOLEAN
+	is_authorized(server_username: READABLE_STRING_8; server_password: detachable READABLE_STRING_8; server_realm: detachable READABLE_STRING_8; server_nonce_list: detachable ARRAYED_LIST[STRING_8]; server_method: detachable READABLE_STRING_8; server_uri: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): BOOLEAN
 			-- Check authorization.	
 			--
 			-- TODO Add arguments for the fields we supplied in the WWW-Authenticate header.
@@ -291,15 +291,54 @@ feature -- Status report
 					attached server_realm as attached_server_realm and
 					attached server_method as attached_server_method and
 					attached server_uri as attached_server_uri and
-					attached server_nonce as attached_server_nonce
+					attached server_nonce_list as attached_server_nonce_list and
+					attached nonce_value as attached_nonce_value
 				then
-					HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, server_nonce)
 
-					HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop, false)
+					if
+						attached_server_nonce_list.last.is_case_insensitive_equal (attached_nonce_value)
+					then
+						HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, attached_nonce_value)
 
-					response_expected := compute_expected_response (HA1, HA2, attached_server_nonce, server_qop, server_algorithm, nc_value, cnonce_value)
+						HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop, false)
 
-					Result := response_expected.is_equal (attached_response_value)
+						response_expected := compute_expected_response (HA1, HA2, attached_nonce_value, server_qop, server_algorithm, nc_value, cnonce_value)
+
+						Result := response_expected.is_equal (attached_response_value)
+					elseif
+						attached_server_nonce_list.has(attached_nonce_value)
+						-- FIXME
+					then
+						io.putstring ("Result could be stale...%N")
+
+						HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, attached_nonce_value)
+
+						HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop, false)
+
+						response_expected := compute_expected_response (HA1, HA2, attached_nonce_value, server_qop, server_algorithm, nc_value, cnonce_value)
+
+						stale := response_expected.is_equal (attached_response_value)
+
+						-- Result is false anyway....
+					else
+						check
+							unknown: not attached_server_nonce_list.has(attached_nonce_value)
+						end
+
+						io.putstring ("We don't know this nonce:%N   " + attached_nonce_value + ".%N")
+						io.putstring ("We only know those:%N")
+
+						from
+							attached_server_nonce_list.start
+						until
+							attached_server_nonce_list.exhausted
+						loop
+
+							io.putstring ("   " + attached_server_nonce_list.item + ".%N")
+							attached_server_nonce_list.forth
+						end
+
+					end
 				else
 					io.putstring ("Could not compute expected response since something was not attached.")
 				end
@@ -334,9 +373,12 @@ feature -- Status report
 	is_bad_request: BOOLEAN
 			-- If a directive or its value is improper, or required directives are missing, the proper response is 	400 Bad Request.
 
+	stale: BOOLEAN
+			-- Is stale?
+
 feature -- Digest computation
 
-	compute_hash_A1 (server_username: READABLE_STRING_8; server_realm: READABLE_STRING_8; server_password: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; server_nonce: detachable READABLE_STRING_8): STRING_8
+	compute_hash_A1 (server_username: READABLE_STRING_8; server_realm: READABLE_STRING_8; server_password: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; server_nonce: READABLE_STRING_8): STRING_8
 			-- Compute H(A1).
 			-- TODO When do we use which string class?
 			-- TODO Support for MD5-sess.
@@ -482,7 +524,7 @@ feature -- Access
 
 				Result := h.substring (i+1, j-1)
 
-				io.putstring ("Parsed " + k +": " + Result + "%N")
+--				io.putstring ("Parsed " + k +": " + Result + "%N")
 			end
 		end
 
