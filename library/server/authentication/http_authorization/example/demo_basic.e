@@ -346,6 +346,8 @@ feature -- Basic operations
 			values: LINKED_LIST[STRING]
 			new_nonce: STRING
 		do
+			io.putstring ("HANDLE_UNAUTHORIZED%N")
+
 			create s.make_from_string (a_description)
 
 			append_html_login (req, s)
@@ -538,13 +540,13 @@ feature -- Helper
 
 				io.putstring ("DEMO_BASIC.append_html_footer()%N")
 
-				create hauth.make (req.http_authorization)
-				if attached hauth.login as l_login then
-					s.append (" login=<strong>" + html_encoder.encoded_string (l_login)+ "</strong>")
-				end
-				if attached hauth.password as l_password then
-					s.append (" password=<strong>" + html_encoder.encoded_string (l_password)+ "</strong>")
-				end
+--				create hauth.make (req.http_authorization)
+--				if attached hauth.login as l_login then
+--					s.append (" login=<strong>" + html_encoder.encoded_string (l_login)+ "</strong>")
+--				end
+--				if attached hauth.password as l_password then
+--					s.append (" password=<strong>" + html_encoder.encoded_string (l_password)+ "</strong>")
+--				end
 				s.append ("<br/>")
 			end
 			if attached req.raw_header_data as l_header then
