@@ -38,6 +38,7 @@ feature -- Initialization
 			u,p: READABLE_STRING_32
 			utf: UTF_CONVERTER
 			l_md5: MD5
+			nonce_string: READABLE_STRING_8
 		do
 			password := Void
 
@@ -447,6 +448,7 @@ feature -- Digest computation
 				io.new_line
 			end
 		end
+
 
 feature -- Access
 

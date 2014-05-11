@@ -26,6 +26,10 @@ feature {NONE} -- Initialization
 
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
+
+			init_private_key
+
+			server_nonce := getfreshnonce
 		end
 
 feature -- Credentials
@@ -86,6 +90,10 @@ feature -- Basic operations
 		do
 			io.putstring ("Called DEMO_BASIC.execute%N")
 
+--			-- Once init private key.
+--			-- TODO Move this to the creation method...
+--			init_private_key
+
 			-- Auth type
 			if attached req.auth_type as attached_auth_type then
 				io.putstring ("req.auth_type: " + attached_auth_type)
@@ -105,27 +113,27 @@ feature -- Basic operations
 				create header.make_from_raw_header_data (l_http_auth)
 				iter := header.to_name_value_iterable
 
-				if attached {ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]} header.to_name_value_iterable as attached_array then
-					from
-						attached_array.start
-						io.putstring ("++++++++++")
-						io.put_new_line
-					until
-						attached_array.exhausted
-					loop
-						-- Print key-value pair
-						if attached attached_array.item.at (1) as first then
-							io.putstring ("First: " + first.out + "%N")
-						else
-							io.putstring ("First: not attached%N")
-						end
+--				if attached {ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]} header.to_name_value_iterable as attached_array then
+--					from
+--						attached_array.start
+--						io.putstring ("++++++++++")
+--						io.put_new_line
+--					until
+--						attached_array.exhausted
+--					loop
+--						-- Print key-value pair
+--						if attached attached_array.item.at (1) as first then
+--							io.putstring ("First: " + first.out + "%N")
+--						else
+--							io.putstring ("First: not attached%N")
+--						end
 
-						attached_array.forth
-					end
+--						attached_array.forth
+--					end
 
-					io.putstring ("++++++++++")
-					io.put_new_line
-				end
+--					io.putstring ("++++++++++")
+--					io.put_new_line
+--				end
 
 
 				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
@@ -371,10 +379,81 @@ feature -- Parameters
 	-- TODO Also support auth-int.	
 	-- TODO If we suggest multiple alternatives, use an arrayed_list istead.
 	server_qop: STRING = "auth"
-	server_nonce: STRING = "dcd98b7102dd2f0e8b11d0f600bfb0c093"
+	server_nonce: STRING
 	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
 	server_algorithm: STRING = "MD5"
 	server_realm: STRING = "testrealm@host.com"
+
+	private_key: INTEGER_32
+
+
+feature -- Nonce
+
+	getFreshNonce: STRING_8
+			-- Create a fresh nonce in the following format:
+			--		Base64(timeStamp : MD5(timeStamp : privateKey))
+			-- TODO Create nonce according to suggestion in RFC 2617
+		require
+			private_key_exists: attached private_key
+		local
+			nonce_string: STRING_8
+			date_time: DATE_TIME
+			http_time: HTTP_DATE
+			base64_encoder: BASE64
+			hash: MD5
+			time_string: STRING_8
+		do
+			create base64_encoder
+
+			create hash.make
+
+			create date_time.make_now_utc
+
+			create http_time.make_from_date_time (date_time)
+
+			time_string := http_time.string
+
+			io.putstring ("Time: " + time_string + "%N")
+
+			hash.update_from_string (time_string + ":" + private_key.out)
+
+			Result := hash.digest_as_string
+			Result.to_lower
+			Result.prepend (time_string + ":")
+
+--			io.putstring ("Nonce before encoding: " + Result + "%N")
+
+			Result := base64_encoder.encoded_string (Result)
+
+			io.putstring ("Nonce: " + Result + "%N")
+		end
+
+
+	init_private_key
+			-- Initialize the private key.
+			-- FIXME We always want a new private key...
+			-- TODO Call this at proper place.
+		local
+			random_int: RANDOM
+			l_seed: INTEGER
+			l_time: TIME
+		once
+			create l_time.make_now
+
+     		l_seed := l_time.hour
+      		l_seed := l_seed * 60 + l_time.minute
+      		l_seed := l_seed * 60 + l_time.second
+      		l_seed := l_seed * 1000 + l_time.milli_second
+
+      		create random_int.set_seed (l_seed)
+
+			random_int.forth
+
+			private_key := random_int.item
+
+			io.putstring ("Private key: " + private_key.out + "%N")
+		end
+
 
 
 feature -- Helper

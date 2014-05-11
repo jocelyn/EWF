@@ -16,6 +16,8 @@
 		<library name="http" location="..\..\..\..\network\protocol\http\http-safe.ecf" readonly="false"/>
 		<library name="http_auth" location="..\http_authorization-safe.ecf" readonly="false"/>
 		<library name="wsf" location="..\..\..\wsf\wsf-safe.ecf"/>
+		<library name="crypto" location="$ISE_LIBRARY\unstable\library\text\encryption\crypto\crypto-safe.ecf"/>			
+		<library name="time" location="$ISE_LIBRARY\library\time\time.ecf" />
 		<cluster name="src" location=".\" recursive="true"/>
 	</target>
 </system>
