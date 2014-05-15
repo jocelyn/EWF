@@ -51,14 +51,14 @@ feature -- Credentials
 			Result implies is_known_login (a_login)
 		end
 
-	demo_credential: STRING_32
-			-- First valid known credential display for demo in dialog.
-		do
-			valid_credentials.start
-			create Result.make_from_string_general (valid_credentials.key_for_iteration)
-			Result.append_character (':')
-			Result.append (valid_credentials.item_for_iteration)
-		end
+--	demo_credential: STRING_32
+--			-- First valid known credential display for demo in dialog.
+--		do
+--			valid_credentials.start
+--			create Result.make_from_string_general (valid_credentials.key_for_iteration)
+--			Result.append_character (':')
+--			Result.append (valid_credentials.item_for_iteration)
+--		end
 
 	valid_credentials: STRING_TABLE [READABLE_STRING_32]
 			-- Password indexed by login.
@@ -87,63 +87,12 @@ feature -- Basic operations
 			auth_successful: BOOLEAN
 			auth_stale: BOOLEAN
 		do
-			io.putstring ("Called DEMO_BASIC.execute%N")
-
---			-- Once init private key.
---			-- TODO Move this to the creation method...
---			init_private_key
-
-			-- Auth type
---			if attached req.auth_type as attached_auth_type then
---				io.putstring ("req.auth_type: " + attached_auth_type)
---			else
---				io.putstring ("req.auth_type: not attached.")
---			end
---			io.new_line
-
---			print("content length of request: " + req.content_length_value.to_hex_string )
---			io.new_line
-
-
-
+			-- Hanle requests which contain Authorization header.
 			if attached req.http_authorization as l_http_auth then
-
 --				-- Try to parse the request
---				create header.make_from_raw_header_data (l_http_auth)
---				iter := header.to_name_value_iterable
-
---				if attached {ARRAYED_LIST [TUPLE [READABLE_STRING_8, READABLE_STRING_8]]} header.to_name_value_iterable as attached_array then
---					from
---						attached_array.start
---						io.putstring ("++++++++++")
---						io.put_new_line
---					until
---						attached_array.exhausted
---					loop
---						-- Print key-value pair
---						if attached attached_array.item.at (1) as first then
---							io.putstring ("First: " + first.out + "%N")
---						else
---							io.putstring ("First: not attached%N")
---						end
-
---						attached_array.forth
---					end
-
---					io.putstring ("++++++++++")
---					io.put_new_line
---				end
-
-
---				io.putstring ("DEMO_BASICS.execute: request is http authorization.")
---				io.put_new_line
---				io.putstring ("http authorization header of request:")
---				io.put_new_line
---				print(l_http_auth)
---				io.put_new_line
 
 				-- Once, add a nonce, s.t. we can test stale
---				add_nonce_once
+				add_nonce_once
 
 				create auth.make (l_http_auth)
 
