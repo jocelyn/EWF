@@ -89,11 +89,11 @@ feature -- Basic operations
 		do
 			-- Hanle requests which contain Authorization header.
 			if attached req.http_authorization as l_http_auth then
---				-- Try to parse the request
 
 				-- Once, add a nonce, s.t. we can test stale
-				add_nonce_once
+--				add_nonce_once
 
+				-- Try to parse the request
 				create auth.make (l_http_auth)
 
 				if auth.error_occurred then

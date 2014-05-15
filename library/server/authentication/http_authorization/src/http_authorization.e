@@ -23,7 +23,7 @@ create
 
 feature -- Initialization
 
-	make (a_http_authorization: detachable READABLE_STRING_8)
+	make (a_http_authorization: READABLE_STRING_8)
 			-- Initialize `Current'.
 			-- Parse authorization header.
 			--
@@ -32,6 +32,11 @@ feature -- Initialization
 			--		empty
 			--		neither a Basic nor a Digest authorization
 			--		not a VALID Basic or Digest authorization (i.e., starts with "Basic" or "Digest", but does not have proper format)?
+			--
+			-- TODO error_occurred if non-optional field not quoted or empty...
+		require
+			-- We do not accept any authentication except Digest and Basic.
+			known_authentication: a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("Basic")
 		local
 			i, j: INTEGER
 			t, s: STRING_8
@@ -39,120 +44,111 @@ feature -- Initialization
 			utf: UTF_CONVERTER
 			l_md5: MD5
 			nonce_string: READABLE_STRING_8
+			empty_string_32: STRING_32
 		do
+			create empty_string_32.make_empty
+
 			password := Void
 
-			-- Default also if neither Basic nor Digest. (TODO Check this. Is this ok?)
-			if a_http_authorization = Void then
-					-- Default: Basic
-				type := basic_auth_type
-				http_authorization := Void
-			else
-				create http_authorization.make_from_string (a_http_authorization)
-				create t.make_empty
-				type := t
-				if not a_http_authorization.is_empty then
-					i := 1
-					if a_http_authorization[i] = ' ' then
-						i := i + 1
-					end
-					i := a_http_authorization.index_of (' ', i)
-					if i > 0 then
-						t.append (a_http_authorization.substring (1, i - 1))
-						t.right_adjust; t.left_adjust
-						if t.same_string (Basic_auth_type) then
-							type := Basic_auth_type
-							s := (create {BASE64}).decoded_string (a_http_authorization.substring (i + 1, a_http_authorization.count))
-							i := s.index_of (':', 1) --| Let's assume ':' is forbidden in login ...
-							if i > 0 then
-								u := utf.utf_8_string_8_to_string_32 (s.substring (1, i - 1)) -- UTF_8 decoding to support unicode username
-								p := utf.utf_8_string_8_to_string_32 (s.substring (i + 1, s.count)) -- UTF_8 decoding to support unicode password
-								login := u
-								password := p
-								check
-									(create {HTTP_AUTHORIZATION}.make_custom_auth (u, p, t)).http_authorization ~ http_authorization
-								end
-							end
-						elseif t.same_string (Digest_auth_type) then
-							type := Digest_auth_type
+			create http_authorization.make_from_string (a_http_authorization)
+			create t.make_empty
+			type := t
 
-							-- XXX Why do we know here that a_http_authorization is attached?
-							-- XXX Find out difference between being void and being attached, lear more about void safety etc.
-
-							-- TODO Improve parsing (be more restrictive).
-
-							-- What we do now: Try to parse the fields, and set them to the epmty string if they didn't match our
-							-- expectations.
-							-- NOTE: We do not set them to void any more.
-
-
-							-- Parse response
-							response_value := get_header_value_by_key (a_http_authorization, "response")
-
-							if
-								attached response_value as attached_response_value and then
-								(
-									not (attached_response_value.count = 34) or
-									not attached_response_value.item (1).is_equal ('"') or
-									not attached_response_value.item (attached_response_value.count).is_equal ('"')
-									-- TODO Make sure that it is in hex format.
-								)
-
-							then
-								-- Response is not valid, set it to void.
-								response_value := Void
-							end
-
-							response_value := unquote_string (response_value)
-
-							-- Parse login
-							login := get_header_value_by_key (a_http_authorization, "username")
-							login := unquote_string (login)
-
-							-- Parse realm
-							-- XXX Add further tests for validity of realm value.
-							realm_value := get_header_value_by_key (a_http_authorization, "realm")
-							realm_value := unquote_string (realm_value)
-
-							-- Parse nonce
-							nonce_value := get_header_value_by_key (a_http_authorization, "nonce")
-							nonce_value := unquote_string (nonce_value)
-
-							-- Parse uri
-							uri_value := get_header_value_by_key (a_http_authorization, "uri")
-
-							-- Parse qop
-							qop_value := get_header_value_by_key (a_http_authorization, "qop")
-							if
-								attached qop_value as attached_qop_value and then
-								-- Note: Here, auth and auth-int are not quoted any more!
-								not (attached_qop_value.is_equal ("auth") or attached_qop_value.is_equal ("auth-int"))
-							then
-								qop_value := Void
-							end
-
-							-- TODO Parse algorithm
-							algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
+			if not a_http_authorization.is_empty then
+				i := 1
+				if a_http_authorization[i] = ' ' then
+					i := i + 1
+				end
+				i := a_http_authorization.index_of (' ', i)
+				if i > 0 then
+					t.append (a_http_authorization.substring (1, i - 1))
+					t.right_adjust; t.left_adjust
+					if t.same_string (Basic_auth_type) then
+						type := Basic_auth_type
+						s := (create {BASE64}).decoded_string (a_http_authorization.substring (i + 1, a_http_authorization.count))
+						i := s.index_of (':', 1) --| Let's assume ':' is forbidden in login ...
+						if i > 0 then
+							u := utf.utf_8_string_8_to_string_32 (s.substring (1, i - 1)) -- UTF_8 decoding to support unicode username
+							p := utf.utf_8_string_8_to_string_32 (s.substring (i + 1, s.count)) -- UTF_8 decoding to support unicode password
+							login := u
+							password := p
 							check
-								is_MD5: not attached algorithm_value as attached_algorithm_value or else (attached_algorithm_value.is_empty or attached_algorithm_value.is_case_insensitive_equal ("MD5"))
+								(create {HTTP_AUTHORIZATION}.make_custom_auth (u, p, t)).http_authorization ~ http_authorization
 							end
-							-- TODO Check that it is one of the algorithms supplied in the WWW_Authenticate response header.
-
-							-- TODO Parse nc
-							nc_value := get_header_value_by_key (a_http_authorization, "nc")
-							-- TODO Make sure that it is in hex format.
-							-- Make sure it has length 8.
-
-							-- TODO Parse cnonce
-							cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
-							cnonce_value := unquote_string (cnonce_value)
-
-							-- TODO Parse opaque
-							opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
-							opaque_value := unquote_string (opaque_value)
-							-- TODO Check that it is the opaque supplied in the WWW_Authenticate response header.
-							-- Also handle case where WWW_Authenticate did'n supply an opaque value.
 						end
+					else
+						check
+							t.same_string (Digest_auth_type)
+						end
+
+						type := Digest_auth_type
+
+						-- XXX Why do we know here that a_http_authorization is attached?
+						-- XXX Find out difference between being void and being attached, lear more about void safety etc.
+
+						-- TODO Improve parsing (be more restrictive).
+
+						-- Try to parse the fields, and set them to the epmty string if they didn't match our expectations.
+
+						-- Parse response
+						response_value := get_header_value_by_key (a_http_authorization, "response")
+						if
+							attached response_value as attached_response_value and then
+							attached_response_value.count /= 34
+						then
+							-- Response is not valid, set it to empty string.
+							response_value := empty_string_32
+							error_occurred := True
+						end
+						response_value := unquote_string (response_value)
+
+						-- Parse login
+						login := get_header_value_by_key (a_http_authorization, "username")
+						login := unquote_string (login)
+
+						-- Parse realm
+						-- XXX Add further tests for validity of realm value.
+						realm_value := get_header_value_by_key (a_http_authorization, "realm")
+						realm_value := unquote_string (realm_value)
+
+						-- Parse nonce
+						nonce_value := get_header_value_by_key (a_http_authorization, "nonce")
+						nonce_value := unquote_string (nonce_value)
+
+						-- Parse uri
+						uri_value := get_header_value_by_key (a_http_authorization, "uri")
+
+						-- Parse qop
+						qop_value := get_header_value_by_key (a_http_authorization, "qop")
+						if
+							attached qop_value as attached_qop_value and then
+							-- Note: Here, auth and auth-int are not quoted any more!
+							not (attached_qop_value.is_equal ("auth") or attached_qop_value.is_equal ("auth-int"))
+						then
+							qop_value := Void
+						end
+
+						-- TODO Parse algorithm
+						algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
+						check
+							is_MD5: not attached algorithm_value as attached_algorithm_value or else (attached_algorithm_value.is_empty or attached_algorithm_value.is_case_insensitive_equal ("MD5"))
+						end
+						-- TODO Check that it is one of the algorithms supplied in the WWW_Authenticate response header.
+
+						-- TODO Parse nc
+						nc_value := get_header_value_by_key (a_http_authorization, "nc")
+						-- TODO Make sure that it is in hex format.
+						-- Make sure it has length 8.
+
+						-- TODO Parse cnonce
+						cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
+						cnonce_value := unquote_string (cnonce_value)
+
+						-- TODO Parse opaque
+						opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
+						opaque_value := unquote_string (opaque_value)
+						-- TODO Check that it is the opaque supplied in the WWW_Authenticate response header.
+						-- Also handle case where WWW_Authenticate did'n supply an opaque value.
 					end
 				end
 			end
@@ -506,14 +502,17 @@ feature -- Access
 			-- FIXME
 		local
 			i,j: INTEGER
+			result_string: STRING
 		do
 			-- We assume that each key-value pair begins with a space and ends with '='.
 			i := h.substring_index (" " + k + "=", 1)
 
 			if i = 0 then
-				Result := Void
+				create result_string.make_empty
 
-				io.putstring ("Parsed " + k +": Void%N")
+				Result := result_string
+
+				io.putstring ("Parsed " + k +": empty string%N")
 			else
 				i := h.index_of ('=', i)
 
@@ -536,8 +535,7 @@ feature -- Access
 
 	unquote_string(s: detachable READABLE_STRING_32): STRING_32
 			-- Returns string without quotes, or empty string if string is not quoted.
-		require
-			-- argument is actually quoted.
+			-- Do not set `error_occurred', because maybe the field was optional.
 		local
 			i, j: INTEGER
 			rs: STRING_32
