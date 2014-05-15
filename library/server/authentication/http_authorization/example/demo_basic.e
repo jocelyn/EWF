@@ -96,59 +96,44 @@ feature -- Basic operations
 				-- Try to parse the request
 				create auth.make (l_http_auth)
 
-				if auth.error_occurred then
+				if auth.is_bad_request then
 					io.putstring ("Error while creation of http_auth.")
 				else
-					-- Test whether we know the username.
+					-- Test whether we know the username and the corresponding password.
 					if
-						attached auth.login as attached_auth_login and then not attached_auth_login.is_empty
+						attached auth.login as attached_auth_login and then not attached_auth_login.is_empty and then
+						attached valid_credentials.item (attached_auth_login) as attached_auth_password
 					then
-						if
-							attached valid_credentials.item (attached_auth_login) as attached_auth_password
-						then
-							-- We have everything we need to verify the received response.
+						-- We have everything we need to verify the received response.
 
-							-- TODO Check that the field "uri" of the authorization-header is ok.
-							-- TODO Then use this field in the is_authorized.
+						-- TODO Distinguish between basic and digest.
+						auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
 
-							-- TODO Distinguish between basic and digest.
-							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
+						auth_stale := auth.stale
 
-							auth_stale := auth.stale
+						io.putstring ("Authorized: " + auth_successful.out + "%N")
+						io.putstring ("Stale: " + auth_stale.out + "%N")
 
-							io.putstring ("Stale: " + auth_stale.out + "%N")
-
-							-- TODO Replace this with above
+						-- TODO Replace this with above
 --							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
 
-							l_authenticated_username := attached_auth_login
+						l_authenticated_username := attached_auth_login
 
-							io.putstring ("Is authorized: " + auth_successful.out + "%N")
-
-							-- TODO Replace this.
-							-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
-							if auth_successful then
-								handle_authenticated (auth, req, res)
-							end
+						-- TODO Replace this.
+						-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
+						if auth_successful then
+							handle_authenticated (auth, req, res)
 						else
-							io.putstring ("We don't know this login: " + attached_auth_login)
+							handle_unauthorized ("ERROR: Invalid credential", req, res, auth_stale)
 						end
-					else
-						io.putstring ("HTTP_AUTHORIZATION was not able to parse login successuflly.%N")
-					end
 
+					else
+						io.putstring ("Don't know login or corresponding password.%N")
+					end
 				end
 			else
---				io.putstring ("DEMO_BASICS.execute: request is not http authorization.")
---				io.put_new_line
-			end
-
-			if not auth_successful then
-				handle_unauthorized ("ERROR: Invalid credential", req, res, auth_stale)
-			else
-				if l_authenticated_username /= Void then
-					-- TODO We would like to call "handle_authenticated" here.
-				elseif req.path_info.same_string_general ("/login") then
+				-- Request does not contain Authorization header.
+				if req.path_info.same_string_general ("/login") then
 					handle_unauthorized ("Please provide credential ...", req, res, auth_stale)
 				elseif req.path_info.starts_with_general ("/protected/") then
 						-- any "/protected/*" url
@@ -157,6 +142,8 @@ feature -- Basic operations
 					handle_anonymous (req, res)
 				end
 			end
+
+
 		end
 
 	handle_authenticated (auth: HTTP_AUTHORIZATION; req: WSF_REQUEST; res: WSF_RESPONSE)

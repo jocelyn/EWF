@@ -33,20 +33,18 @@ feature -- Initialization
 			--		neither a Basic nor a Digest authorization
 			--		not a VALID Basic or Digest authorization (i.e., starts with "Basic" or "Digest", but does not have proper format)?
 			--
-			-- TODO error_occurred if non-optional field not quoted or empty...
+			-- TODO `is_bad_request' if non-optional field not quoted or empty...
 		require
 			-- We do not accept any authentication except Digest and Basic.
 			known_authentication: a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("Basic")
 		local
-			i, j: INTEGER
+			i: INTEGER
 			t, s: STRING_8
 			u,p: READABLE_STRING_32
 			utf: UTF_CONVERTER
-			l_md5: MD5
-			nonce_string: READABLE_STRING_8
-			empty_string_32: STRING_32
+			empty_string_8: STRING_8
 		do
-			create empty_string_32.make_empty
+			create empty_string_8.make_empty
 
 			password := Void
 
@@ -97,8 +95,7 @@ feature -- Initialization
 							attached_response_value.count /= 34
 						then
 							-- Response is not valid, set it to empty string.
-							response_value := empty_string_32
-							error_occurred := True
+							response_value := empty_string_8
 						end
 						response_value := unquote_string (response_value)
 
@@ -122,33 +119,30 @@ feature -- Initialization
 						qop_value := get_header_value_by_key (a_http_authorization, "qop")
 						if
 							attached qop_value as attached_qop_value and then
-							-- Note: Here, auth and auth-int are not quoted any more!
 							not (attached_qop_value.is_equal ("auth") or attached_qop_value.is_equal ("auth-int"))
 						then
-							qop_value := Void
+							qop_value := empty_string_8
 						end
 
-						-- TODO Parse algorithm
+						-- Parse algorithm
 						algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
 						check
 							is_MD5: not attached algorithm_value as attached_algorithm_value or else (attached_algorithm_value.is_empty or attached_algorithm_value.is_case_insensitive_equal ("MD5"))
 						end
 						-- TODO Check that it is one of the algorithms supplied in the WWW_Authenticate response header.
 
-						-- TODO Parse nc
+						-- Parse nc
 						nc_value := get_header_value_by_key (a_http_authorization, "nc")
 						-- TODO Make sure that it is in hex format.
 						-- Make sure it has length 8.
 
-						-- TODO Parse cnonce
+						-- Parse cnonce
 						cnonce_value := get_header_value_by_key (a_http_authorization, "cnonce")
 						cnonce_value := unquote_string (cnonce_value)
 
-						-- TODO Parse opaque
+						-- Parse opaque
 						opaque_value := get_header_value_by_key (a_http_authorization, "opaque")
 						opaque_value := unquote_string (opaque_value)
-						-- TODO Check that it is the opaque supplied in the WWW_Authenticate response header.
-						-- Also handle case where WWW_Authenticate did'n supply an opaque value.
 					end
 				end
 			end
@@ -201,32 +195,37 @@ feature -- Initialization
 
 feature -- Access
 
-	http_authorization: detachable IMMUTABLE_STRING_8
+	http_authorization: IMMUTABLE_STRING_8
 
+	-- We always have a type.
 	type: READABLE_STRING_8
 
-	-- Deprecated. Rename into `username'.
-	login: detachable READABLE_STRING_32
 
-	password: detachable READABLE_STRING_32
+	-- The remaining fields are SHOULD be void if type is "Basic",
+	-- and MUST NOT be void if type is "Digest".
+	-- If type is "Digest", then some fields may be empty.
 
-	realm_value: detachable READABLE_STRING_32
+	login: detachable READABLE_STRING_8
 
-	nonce_value: detachable READABLE_STRING_32
+	password: detachable READABLE_STRING_8
 
-	nc_value: detachable READABLE_STRING_32
+	realm_value: detachable READABLE_STRING_8
 
-	cnonce_value: detachable READABLE_STRING_32
+	nonce_value: detachable READABLE_STRING_8
 
-	qop_value: detachable READABLE_STRING_32
+	nc_value: detachable READABLE_STRING_8
 
-	response_value: detachable READABLE_STRING_32
+	cnonce_value: detachable READABLE_STRING_8
 
-	opaque_value: detachable READABLE_STRING_32
+	qop_value: detachable READABLE_STRING_8
 
-	uri_value: detachable READABLE_STRING_32
+	response_value: detachable READABLE_STRING_8
 
-	algorithm_value: detachable READABLE_STRING_32
+	opaque_value: detachable READABLE_STRING_8
+
+	uri_value: detachable READABLE_STRING_8
+
+	algorithm_value: detachable READABLE_STRING_8
 
 feature -- Status report
 
@@ -242,36 +241,28 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
-	error_occurred: BOOLEAN
-			-- True, if there was a syntactical error in the digest-response.
-			-- If a directive or its value is improper, or required directives are missing,
-			-- the proper response is 400 Bad Request.
-
-	is_authorized(server_username: READABLE_STRING_8; server_password: detachable READABLE_STRING_8; server_realm: detachable READABLE_STRING_8; server_nonce_list: detachable ARRAYED_LIST[STRING_8]; server_method: detachable READABLE_STRING_8; server_uri: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): BOOLEAN
-			-- Check authorization.	
+	is_authorized(server_username: READABLE_STRING_8; server_password: READABLE_STRING_8; server_realm: READABLE_STRING_8;
+				server_nonce_list: ARRAYED_LIST[STRING_8]; server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8;
+				server_algorithm: detachable READABLE_STRING_8; entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): BOOLEAN
+			-- Validates authentication.
 			--
-			-- TODO Add arguments for the fields we supplied in the WWW-Authenticate header.
-			-- This must be done s.t. we can check whether the values received in this http-authorization are correct.
-			-- For example: If the http-authorization is a digest authorization, then the nonce contained in it
-			-- must be the same as the one we supplied in the corresponding WWW-Authenticate header.
+			-- Here we need the values which the server has sent in the WWW-Authenticate header.
 			--
-			-- TODO For digest, take into account: stale, nonce-count etc.
+			-- TODO `server_nonce_list' should also contain latest nonce-count values from client.
 			-- TODO uri may be changed by proxies. Which uri should we take, the one from the request or the one from the authorization-header?
-			-- TODO Do not take password as argument, hash instead...
-			-- TODO We still assume that qop=auth.
-			-- TODO Arrayed_lists if multiple alternatives (e.g. algorithm, qop...)
+			-- TODO This method could be modified s.t. it does not take the cleartext password as an argument.
+			-- TODO Be more flexible: Do not only support auth, MD5 etc.			
 		require
-			not attached entity_body
 			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
 			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
 		local
 			HA1: STRING_8
 			HA2: STRING_8
 			response_expected: STRING_8
-			found: BOOLEAN
+			nonce_found: BOOLEAN
 		do
+			-- Basic
 			if 	type.is_case_insensitive_equal (basic_auth_type) then
-				-- XXX When check for attachment, when for voidness? Difference?
 				if
 					attached password as attached_password and
 					attached login as attached_login and
@@ -279,7 +270,11 @@ feature -- Status report
 				then
 					Result := attached_password.is_case_insensitive_equal (attached_server_password) and attached_login.is_case_insensitive_equal (server_username)
 				end
-			elseif 	type.is_case_insensitive_equal (digest_auth_type) then
+			else
+				check
+					is_digest: type.is_case_insensitive_equal (digest_auth_type)
+				end
+
 				if
 					attached realm_value as attached_realm_value and
 					attached response_value as attached_response_value and
@@ -291,19 +286,22 @@ feature -- Status report
 					attached server_nonce_list as attached_server_nonce_list and
 					attached nonce_value as attached_nonce_value
 				then
+					-- Do we know the nonce from the Authorization-header?
+					-- XXX The following could be optimized, for example move to other position, start at end etc.
+					from
+						attached_server_nonce_list.start
+					until
+						attached_server_nonce_list.exhausted
+					loop
 
-						from
-							attached_server_nonce_list.start
-						until
-							attached_server_nonce_list.exhausted
-						loop
+						nonce_found := nonce_found or attached_server_nonce_list.item.is_case_insensitive_equal (attached_nonce_value)
+						attached_server_nonce_list.forth
+					end
 
-							found := found or attached_server_nonce_list.item.is_case_insensitive_equal (attached_nonce_value)
-							attached_server_nonce_list.forth
-						end
 					if
 						attached_server_nonce_list.last.is_case_insensitive_equal (attached_nonce_value)
 					then
+						-- The nonce is the one we expected.
 						HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, attached_nonce_value)
 
 						HA2 := compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, entity_body, server_qop, false)
@@ -312,10 +310,13 @@ feature -- Status report
 
 						Result := response_expected.is_equal (attached_response_value)
 					elseif
-						found
+						nonce_found
 						-- FIXME
 					then
-						io.putstring ("Result could be stale...%N")
+						-- The nonce is not the one we expected.
+						-- Maybe it is in the list of nonces from the client.
+						-- Then, the nonce could just be stale, and the user agent doesn't have to prompt for the credentials again.
+						-- The result is false anyway.
 
 						HA1 := compute_hash_a1 (attached_server_username, attached_server_realm, attached_server_password, server_algorithm, attached_nonce_value)
 
@@ -325,7 +326,7 @@ feature -- Status report
 
 						stale := response_expected.is_equal (attached_response_value)
 
-						-- Result is false anyway....
+						io.putstring ("Nonce is not the expected one. Stale: " + stale.out + "%N")
 					else
 						io.putstring ("We don't know this nonce:%N   " + attached_nonce_value + ".%N")
 						io.putstring ("We only know those:%N")
@@ -335,11 +336,9 @@ feature -- Status report
 						until
 							attached_server_nonce_list.exhausted
 						loop
-
 							io.putstring ("   " + attached_server_nonce_list.item + ".%N")
 							attached_server_nonce_list.forth
 						end
-
 					end
 				else
 					io.putstring ("Could not compute expected response since something was not attached.")
@@ -373,20 +372,22 @@ feature -- Status report
 		end
 
 	is_bad_request: BOOLEAN
-			-- If a directive or its value is improper, or required directives are missing, the proper response is 	400 Bad Request.
+			-- True, if there was a syntactical error in the digest-response.
+			-- If a directive or its value is improper, or required directives are missing,
+			-- the proper response is 400 Bad Request.
+			--
+			-- TODO Make more use of this.
 
 	stale: BOOLEAN
-			-- Is stale?
+			-- True iff authorization was stale.
 
 feature -- Digest computation
 
 	compute_hash_A1 (server_username: READABLE_STRING_8; server_realm: READABLE_STRING_8; server_password: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; server_nonce: READABLE_STRING_8): STRING_8
 			-- Compute H(A1).
-			-- TODO When do we use which string class?
-			-- TODO Support for MD5-sess.
+			-- TODO Support for MD5-sess and other algorithms.
 		require
-			-- Necessary?
-			attached type and type /= Void and then	type.is_case_insensitive_equal (digest_auth_type)
+			is_digest: is_digest
 			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
 		local
 			hash: MD5
@@ -408,14 +409,16 @@ feature -- Digest computation
 	compute_hash_A2 (server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8;  entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; for_auth_info: BOOLEAN): STRING_8
 			-- Compute H(A2)
 			-- TODO Support auth-int
+			--
+			-- `for_auth_info' MUST be set to True iff  we compute the hash for the Authentication-Info header.
 		require
 			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
 			is_MD5: not attached server_algorithm or else server_algorithm.is_case_insensitive_equal ("MD5")
-			no_entity_body: not attached entity_body or else entity_body.is_empty
 		local
 			hash: MD5
 			A2: READABLE_STRING_8
 		do
+			-- Special treatment of Authentication-Info header.
 			if for_auth_info then
 				A2 := ":" + server_uri
 			else
@@ -433,9 +436,8 @@ feature -- Digest computation
 --			io.putstring ("Computed HA2: " + Result + "%N")
 		end
 
-	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; server_nonce: READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_32; a_cnonce: detachable READABLE_STRING_32) : STRING_8
+	compute_expected_response(ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; server_nonce: READABLE_STRING_8; server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_8; a_cnonce: detachable READABLE_STRING_8) : STRING_8
 			-- Computes UNQUOTED expected response.
-			-- TODO Compute expected response, which is quoted. How can I add qoutes to the string?
 			-- TODO Support for
 		require
 			not_auth_int: not attached server_qop as attached_server_qop or else attached_server_qop.is_case_insensitive_equal ("auth")
@@ -463,7 +465,7 @@ feature -- Digest computation
 					unhashed_response := ha1 + ":" + server_nonce + ":" + attached_nc_value + ":" + attached_cnonce_value + ":" + attached_server_qop + ":" + ha2
 
 --					io.put_string ("Expected unhashed response: " + unhashed_response)
-					io.new_line
+--					io.new_line
 
 					hash.update_from_string (unhashed_response)
 
@@ -476,7 +478,7 @@ feature -- Digest computation
 				end
 			else
 				-- qop directive is not present.
-				-- Use construction for compatibility with RFC 2069
+				-- Use construction for backwards compatibility with RFC 2069
 
 				create hash.make
 
@@ -496,10 +498,9 @@ feature -- Digest computation
 
 feature -- Access
 
-	get_header_value_by_key(h: READABLE_STRING_8; k: STRING_8): detachable READABLE_STRING_32
+	get_header_value_by_key(h: READABLE_STRING_8; k: STRING_8): READABLE_STRING_8
 			-- From header `h', get value associated to key `k'.
-			-- Note: Response could be quoted.
-			-- FIXME
+			-- Returns empty string if `h' does not contain such a value.
 		local
 			i,j: INTEGER
 			result_string: STRING
@@ -533,9 +534,11 @@ feature -- Access
 			end
 		end
 
-	unquote_string(s: detachable READABLE_STRING_32): STRING_32
-			-- Returns string without quotes, or empty string if string is not quoted.
-			-- Do not set `error_occurred', because maybe the field was optional.
+	unquote_string(s: detachable READABLE_STRING_8): STRING_8
+			-- Returns string without quotes.
+			-- If `s' is not quoted, or not attached, returns empty string.
+			--
+			-- Do not set `is_bad_request', because maybe the field was optional.
 		local
 			i, j: INTEGER
 			rs: STRING_32
@@ -595,14 +598,5 @@ feature -- Constants
 	Digest_auth_type: STRING_8 = "Digest"
 
 invariant
-
-	type_valid: (type.is_case_insensitive_equal (basic_auth_type) implies type = basic_auth_type)
-				or (type.is_case_insensitive_equal (Digest_auth_type) implies type = Digest_auth_type)
-
-	-- attachement test necessary?
-	type_attached_and_nonEmpty: attached type and then not type.is_empty
-
---	login_attached_and_nonEmpty: attached login and then not login.is_empty
-
-
+	type_valid: is_digest or is_basic
 end
