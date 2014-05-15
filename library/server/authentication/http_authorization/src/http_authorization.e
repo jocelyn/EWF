@@ -148,6 +148,7 @@ feature -- Initialization
 			end
 		ensure
 			a_http_authorization /= Void implies http_authorization /= Void
+
 --			a_http_authorization.has_substring ("Basic") or a_http_authorization.has_substring ("basic") or a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("digest")
 --			a_http_authorization.has_substring ("Basic") or a_http_authorization.has_substring ("basic") or a_http_authorization.has_substring ("Digest") or a_http_authorization.has_substring ("digest")
 --			type.is_case_insensitive_equal (basic_auth_type) or type.is_case_insensitive_equal (digest_auth_type)
@@ -241,8 +242,8 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
-	is_authorized(server_username: READABLE_STRING_8; server_password: READABLE_STRING_8; server_realm: READABLE_STRING_8;
-				server_nonce_list: ARRAYED_LIST[STRING_8]; server_method: READABLE_STRING_8; server_uri: READABLE_STRING_8;
+	is_authorized(server_username: READABLE_STRING_8; server_password: detachable READABLE_STRING_8; server_realm: detachable READABLE_STRING_8;
+				server_nonce_list: detachable ARRAYED_LIST[STRING_8]; server_method: detachable READABLE_STRING_8; server_uri: detachable READABLE_STRING_8;
 				server_algorithm: detachable READABLE_STRING_8; entity_body: detachable READABLE_STRING_8; server_qop: detachable READABLE_STRING_8): BOOLEAN
 			-- Validates authentication.
 			--
@@ -599,4 +600,24 @@ feature -- Constants
 
 invariant
 	type_valid: is_digest or is_basic
+	digest_well_formed: is_digest implies
+		(
+		attached response_value as attached_response_value and then not attached_response_value.is_empty and
+		attached login as attached_login and then not attached_login.is_empty and
+		attached realm_value as attached_realm and then not attached_realm.is_empty and
+		attached nonce_value as attached_nonce_value and then not attached_nonce_value.is_empty and
+		attached uri_value as attached_uri_value and then not attached_uri_value.is_empty and
+			(
+				((attached qop_value as attached_qop_value and then not attached_qop_value.is_empty) implies
+					(attached cnonce_value as attached_cnonce_value and then not attached_cnonce_value.is_empty) and
+					(attached nc_value as attached_nc_value and then not attached_nc_value.is_empty)
+				) and
+				((not attached qop_value as attached_qop_value or else attached_qop_value.is_empty) implies
+					(not attached cnonce_value as attached_cnonce_value or else attached_cnonce_value.is_empty) and
+					(not attached nc_value as attached_nc_value or else attached_nc_value.is_empty))
+			)
+
+		)
+	supported_qop: attached qop_value as attached_qop_value implies attached_qop_value.is_empty or attached_qop_value.is_case_insensitive_equal ("auth")
+	supported_algorithm: attached algorithm_value as attahced_algorithm_value implies attahced_algorithm_value.is_empty or attahced_algorithm_value.is_case_insensitive_equal ("MD5")
 end

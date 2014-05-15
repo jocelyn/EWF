@@ -51,15 +51,6 @@ feature -- Credentials
 			Result implies is_known_login (a_login)
 		end
 
---	demo_credential: STRING_32
---			-- First valid known credential display for demo in dialog.
---		do
---			valid_credentials.start
---			create Result.make_from_string_general (valid_credentials.key_for_iteration)
---			Result.append_character (':')
---			Result.append (valid_credentials.item_for_iteration)
---		end
-
 	valid_credentials: STRING_TABLE [READABLE_STRING_32]
 			-- Password indexed by login.
 		once
@@ -87,60 +78,75 @@ feature -- Basic operations
 			auth_successful: BOOLEAN
 			auth_stale: BOOLEAN
 		do
-			-- Hanle requests which contain Authorization header.
-			if attached req.http_authorization as l_http_auth then
+			-- Decide whether authorization is needed.
+			if
+				req.path_info.same_string_general ("/login") or
+				req.path_info.starts_with_general ("/protected/")
+			then
+				-- We need an Authorization header for these areas.
 
-				-- Once, add a nonce, s.t. we can test stale
---				add_nonce_once
+				if attached req.http_authorization as l_http_auth then
 
-				-- Try to parse the request
-				create auth.make (l_http_auth)
+					-- Once, add a nonce, s.t. we can test stale
+	--				add_nonce_once
 
-				if auth.is_bad_request then
-					io.putstring ("Error while creation of http_auth.")
-				else
-					-- Test whether we know the username and the corresponding password.
-					if
-						attached auth.login as attached_auth_login and then not attached_auth_login.is_empty and then
-						attached valid_credentials.item (attached_auth_login) as attached_auth_password
-					then
-						-- We have everything we need to verify the received response.
+					-- Try to parse the request
+					create auth.make (l_http_auth)
 
-						-- TODO Distinguish between basic and digest.
-						auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
-
-						auth_stale := auth.stale
-
-						io.putstring ("Authorized: " + auth_successful.out + "%N")
-						io.putstring ("Stale: " + auth_stale.out + "%N")
-
-						-- TODO Replace this with above
---							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
-
-						l_authenticated_username := attached_auth_login
-
-						-- TODO Replace this.
-						-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
-						if auth_successful then
-							handle_authenticated (auth, req, res)
-						else
-							handle_unauthorized ("ERROR: Invalid credential", req, res, auth_stale)
-						end
-
+					if auth.is_bad_request then
+						io.putstring ("Error while creation of http_auth.")
+						-- TODO Send 400: Bad Request message.
 					else
-						io.putstring ("Don't know login or corresponding password.%N")
+						-- Check whether we know the username and the corresponding password.
+						if
+							attached auth.login as attached_auth_login and then not attached_auth_login.is_empty and then
+							attached valid_credentials.item (attached_auth_login) as attached_auth_password
+						then
+							-- We have everything we need to verify the received response.
+
+							-- TODO Distinguish between basic and digest.
+							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
+
+							auth_stale := auth.stale
+
+							io.putstring ("Authorized: " + auth_successful.out + "%N")
+							io.putstring ("Stale: " + auth_stale.out + "%N")
+
+							-- TODO Replace this with above
+	--							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
+
+							l_authenticated_username := attached_auth_login
+
+							-- TODO Replace this.
+							-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
+							if auth_successful then
+								handle_authenticated (auth, req, res)
+							else
+								handle_unauthorized ("ERROR: Invalid credential", req, res, auth_stale)
+							end
+						else
+							io.putstring ("Don't know login or corresponding password.%N")
+						end
 					end
+				else
+	--				-- Request does not contain Authorization header.
+	--				if req.path_info.same_string_general ("/login") then
+						handle_unauthorized ("Please provide credential ...", req, res, auth_stale)
+	--				elseif req.path_info.starts_with_general ("/protected/") then
+	--						-- any "/protected/*" url
+	--					handle_unauthorized ("Protected area, please sign in before", req, res, auth_stale)
+	--				else
+	--					handle_anonymous (req, res)
+	--				end
 				end
 			else
-				-- Request does not contain Authorization header.
-				if req.path_info.same_string_general ("/login") then
-					handle_unauthorized ("Please provide credential ...", req, res, auth_stale)
-				elseif req.path_info.starts_with_general ("/protected/") then
-						-- any "/protected/*" url
-					handle_unauthorized ("Protected area, please sign in before", req, res, auth_stale)
-				else
-					handle_anonymous (req, res)
-				end
+				-- These areas can be accessed withouth authentication.
+				-- NOTE: The client could have sent an Authorization header for these areas,
+				-- even if this is not necessary.
+				-- Therefore, we would also have to process these requests, and keep our
+				-- nonce-count up to date.
+
+				handle_anonymous (req, res)
 			end
 
 
@@ -148,6 +154,7 @@ feature -- Basic operations
 
 	handle_authenticated (auth: HTTP_AUTHORIZATION; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- User `a_username' is authenticated, execute request `req' with response `res'.
+			-- TODO We only consider Digest here...
 		require
 			valid_username: attached auth.login as attached_login and then not attached_login.is_empty
 			known_username: is_known_login (attached_login)
@@ -181,6 +188,7 @@ feature -- Basic operations
 
 				if attached_auth.is_digest then
 					-- Add Authentication-Info header
+					-- Communicate some information regarding the successful authentication in the response.
 					create values.make
 
 					if attached attached_auth.qop_value as attached_qop and then not attached_qop.is_empty then
@@ -191,8 +199,15 @@ feature -- Basic operations
 						values.force ("qop=%"" + attached_qop + "%"")
 
 						check
+							-- This MUST be specified if a qop parameter is sent.
 							is_cnonce_attached: attached attached_auth.cnonce_value as attached_cnonce and then not attached_cnonce.is_empty
 							is_nc_attached: attached attached_auth.nc_value as attached_nc and then not attached_nc.is_empty
+						end
+					else
+						check
+							-- This MUST NOT be specified if the server did not send a qop parameter.
+							not_cnonce_attached: not attached attached_auth.cnonce_value as attached_cnonce or else not attached_cnonce.is_empty
+							not_nc_attached: not attached attached_auth.nc_value as attached_nc or else not attached_nc.is_empty
 						end
 					end
 
@@ -222,7 +237,8 @@ feature -- Basic operations
 						-- TODO What happens rspauth is wrong?
 --						values.force ("rspauth=%"" + "abcd" + "%"")
 
-
+						-- The rspauth parameter supports mutual authentication.
+						-- The server proves that it knows the user's secret.
 						values.force ("rspauth=%"" + rspauth + "%"")
 					end
 
@@ -270,6 +286,8 @@ feature -- Basic operations
 	handle_unauthorized (a_description: STRING; req: WSF_REQUEST; res: WSF_RESPONSE; stale: BOOLEAN)
 			-- Restricted page, authenticated user is required.
 			-- Send `a_description' as part of the response.
+			--
+			-- We do not
 			-- TODO Result could be stale.
 		local
 			h: HTTP_HEADER
@@ -307,15 +325,17 @@ feature -- Basic operations
 			values.force ("opaque=%"" + server_opaque + "%"")
 			values.force ("algorithm=" + server_algorithm + "")
 
-			-- TODO Remove this
---			values.force ("domain%"" + "/login" + "%"")
-
 			-- Stale
 			if stale then
 				io.putstring ("Nonce was stale.%N")
 
 				values.force ("stale=true")
 			end
+
+			-- Domains
+			-- TODO Why does Firefox also send Authorization header for /public area?
+			values.force ("domain=%"/login /protectred%"")
+
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 
