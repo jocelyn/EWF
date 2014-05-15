@@ -87,6 +87,7 @@ feature -- Initialization
 						-- TODO Improve parsing (be more restrictive).
 
 						-- Try to parse the fields, and set them to the epmty string if they didn't match our expectations.
+						-- If fields are not present in the header, leave them unattached.
 
 						-- Parse response
 						response_value := get_header_value_by_key (a_http_authorization, "response")
@@ -535,9 +536,10 @@ feature -- Access
 			end
 		end
 
-	unquote_string(s: detachable READABLE_STRING_8): STRING_8
+	unquote_string(s: detachable READABLE_STRING_8): detachable STRING_8
 			-- Returns string without quotes.
-			-- If `s' is not quoted, or not attached, returns empty string.
+			-- If `s' attached but not quoted, sets `is_bad_request' and returns empty string.
+			-- Otherwise, returns Void.
 			--
 			-- Do not set `is_bad_request', because maybe the field was optional.
 		local
@@ -558,12 +560,13 @@ feature -- Access
 				if i+1 > j-1 or i = 0 or j = 0 then
 					io.putstring ("Not able to unquote string: " + attached_s + "%N")
 					create Result.make_empty
+					is_bad_request := True
 				else
 					Result := rs.substring (i+1, j-1)
 				end
 			else
 				io.putstring ("Not able to unquote string: Void%N")
-				create Result.make_empty
+--				create Result.make_empty
 			end
 		end
 
