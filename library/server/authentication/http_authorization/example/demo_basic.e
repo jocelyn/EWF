@@ -22,14 +22,10 @@ feature {NONE} -- Initialization
 	initialize
 			-- Initialize current service.
 		do
---			io.putstring ("called DEMO_BASIC.initialize\n")
-
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
 
 			init_private_key
-
---			server_nonce := getfreshnonce
 
 			create server_nonce_list.make (0)
 		end
@@ -375,6 +371,9 @@ feature -- Basic operations
 			values.force ("opaque=%"" + server_opaque + "%"")
 			values.force ("algorithm=" + server_algorithm + "")
 
+			-- TODO Remove this
+--			values.force ("domain%"" + "/login" + "%"")
+
 			-- Stale
 			if stale then
 				io.putstring ("Nonce was stale.%N")
@@ -410,6 +409,7 @@ feature -- Parameters
 	server_algorithm: STRING = "MD5"
 	server_realm: STRING = "testrealm@host.com"
 
+	-- TODO This could be a list of Tuples, s.t. each nonce is assigned the latest nc from the client.
 	server_nonce_list: ARRAYED_LIST[STRING]
 
 	private_key: INTEGER_32
