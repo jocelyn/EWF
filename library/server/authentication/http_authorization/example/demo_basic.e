@@ -96,29 +96,42 @@ feature -- Basic operations
 					if auth.is_bad_request then
 						io.putstring ("Error while creation of http_auth.")
 						-- TODO Send 400: Bad Request message.
+
+						handle_unauthorized ("ERROR: Bad Request", req, res, auth_stale)
 					else
 						-- Check whether we know the username and the corresponding password.
 						if
 							attached auth.login as attached_auth_login and then not attached_auth_login.is_empty and then
-							attached valid_credentials.item (attached_auth_login) as attached_auth_password
+							attached valid_credentials.item (attached_auth_login) as attached_server_password
 						then
 							-- We have everything we need to verify the received response.
+							-- Distinguish between basic and digest.
 
-							-- TODO Distinguish between basic and digest.
-							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
+							if auth.is_basic then
+								if
+									attached auth.password as attached_auth_password
+								then
+									auth_successful := attached_auth_password.is_case_insensitive_equal (attached_server_password)
+								end
+							else
+								check
+									must_be_digest: auth.is_digest
+								end
 
-							auth_stale := auth.stale
+								auth_successful := auth.is_authorized_digest (attached_auth_login, attached_server_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
 
-							io.putstring ("Authorized: " + auth_successful.out + "%N")
-							io.putstring ("Stale: " + auth_stale.out + "%N")
+								auth_stale := auth.stale
+
+								io.putstring ("Authorized: " + auth_successful.out + "%N")
+								io.putstring ("Stale: " + auth_stale.out + "%N")
+							end
+
 
 							-- TODO Replace this with above
 	--							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
 
-							l_authenticated_username := attached_auth_login
+--							l_authenticated_username := attached_auth_login
 
-							-- TODO Replace this.
-							-- TODO The problem was that at the other place, it complained that "auth is not properly set..."
 							if auth_successful then
 								handle_authenticated (auth, req, res)
 							else
@@ -313,14 +326,13 @@ feature -- Basic operations
 
 			create values.make
 
-			values.force ("Digest realm=%"" + server_realm +"%"")
-			values.force ("qop=%"" + server_qop + "%"")
-
 			-- Get a fresh nonce.
 			new_nonce := getfreshnonce
-
 			server_nonce_list.force (new_nonce)
 
+			-- Create response.
+			values.force ("Digest realm=%"" + server_realm +"%"")
+			values.force ("qop=%"" + server_qop + "%"")
 			values.force ("nonce=%"" + new_nonce + "%"")
 			values.force ("opaque=%"" + server_opaque + "%"")
 			values.force ("algorithm=" + server_algorithm + "")
@@ -332,11 +344,14 @@ feature -- Basic operations
 				values.force ("stale=true")
 			end
 
-			-- Domains
-			-- TODO Why does Firefox also send Authorization header for /public area?
-			values.force ("domain=%"/login /protectred%"")
+--			-- Domains
+--			-- TODO Why does Firefox also send Authorization header for /public area?
+--			values.force ("domain=%"/login /protectred%"")
+
+--			values.force ("Basic realm=%"" + server_realm +"%"")
 
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
+			-- TODO Line continuation for better readability.
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 
 --			-- ETag
@@ -347,10 +362,6 @@ feature -- Basic operations
 --			print("page.header.string:%N")
 			PRINT(page.header.string)
 			io.new_line
-
---			print("page.body:%N")
---			print(page.body)
---			io.new_line
 
 			res.send (page)
 		end
