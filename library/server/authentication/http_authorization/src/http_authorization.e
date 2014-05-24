@@ -79,6 +79,8 @@ feature -- Initialization
 							attached_response_value.count /= 34
 						then
 							-- Response is not valid, set it to empty string.
+							io.putstring ("ERROR: Improper response.%N")
+
 							response_value := empty_string_8
 							is_bad_request := True
 						end
@@ -86,6 +88,7 @@ feature -- Initialization
 						if
 							not attached response_value as attached_response_value or else attached_response_value.is_empty
 						then
+							io.putstring ("ERROR: Improper response.%N")
 							is_bad_request := True
 						end
 
@@ -116,10 +119,24 @@ feature -- Initialization
 							-- Other quality of protection is not supported so far.
 							qop_value := empty_string_8
 							is_bad_request := True
+
+
+							io.putstring ("ERROR: Improper qop.%N")
 						end
 
 						-- Parse algorithm
 						algorithm_value := get_header_value_by_key (a_http_authorization, "algorithm")
+
+						-- FIXME Enalbe
+--						algorithm_value := unquote_string (algorithm_value)
+						-- Algorithm MUST NOT be quoted.
+						-- Nevertheless, cURL sens us quoted algorithm values.
+						-- For the sake of robustness, we allow both quoted and unqoted algorithm values.
+
+						if attached algorithm_value as attached_algorithm_value and then is_quoted (attached_algorithm_value) then
+							algorithm_value := unquote_string (algorithm_value)
+						end
+
 						check
 							is_MD5: not attached algorithm_value as attached_algorithm_value or else (attached_algorithm_value.is_empty or attached_algorithm_value.is_case_insensitive_equal ("MD5"))
 						end
@@ -127,7 +144,9 @@ feature -- Initialization
 							attached algorithm_value as attached_algorithm_value and then
 							not attached_algorithm_value.is_equal ("MD5")
 						then
-							-- If the algorithm field is present, it has to be MD5.
+							-- If the algorithm field is present, it has to be MD5.							
+							io.putstring ("ERROR: Improper algorithm: " + attached_algorithm_value + "%N")
+
 							algorithm_value := empty_string_8
 							is_bad_request := True
 						end
@@ -138,7 +157,9 @@ feature -- Initialization
 							attached nc_value as attached_nc_value and then
 							attached_nc_value.count /= 8
 						then
-							-- If the nc field is present, it has to have length 8.
+							-- If the nc field is present, it has to have length 8.							
+							io.putstring ("ERROR: Improper nc.%N")
+
 							nc_value := empty_string_8
 							is_bad_request := True
 						end
@@ -160,6 +181,8 @@ feature -- Initialization
 							not attached uri_value or
 							not attached response_value
 						then
+							io.putstring ("ERROR: Manadory field not attached.%N")
+
 							is_bad_request := True
 						end
 					else

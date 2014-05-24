@@ -317,7 +317,7 @@ feature -- Basic operations
 			values.force ("qop=%"" + server_qop + "%"")
 			values.force ("nonce=%"" + new_nonce + "%"")
 			values.force ("opaque=%"" + server_opaque + "%"")
-			values.force ("algorithm=" + server_algorithm + "")
+			values.force ("algorithm=" + server_algorithm)
 
 			-- Stale
 			if stale then
