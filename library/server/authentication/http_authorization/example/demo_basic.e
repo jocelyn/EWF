@@ -87,7 +87,7 @@ feature -- Basic operations
 
 				if attached req.http_authorization as l_http_auth then
 
-					-- Once, add a nonce, s.t. we can test stale
+					-- Once, add a nonce, s.t. we can test the stale fieldstale
 	--				add_nonce_once
 
 					-- Try to parse the request
@@ -118,19 +118,13 @@ feature -- Basic operations
 									must_be_digest: auth.is_digest
 								end
 
-								auth_successful := auth.is_authorized_digest (attached_auth_login, attached_server_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, void, server_qop)
+								auth_successful := auth.is_authorized_digest (attached_auth_login, attached_server_password, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, server_qop)
 
 								auth_stale := auth.stale
 
 								io.putstring ("Authorized: " + auth_successful.out + "%N")
 								io.putstring ("Stale: " + auth_stale.out + "%N")
 							end
-
-
-							-- TODO Replace this with above
-	--							auth_successful := auth.is_authorized (attached_auth_login, attached_auth_password, server_realm, server_nonce, req.request_method, "/dir/index.html", server_algorithm, void, server_qop)
-
---							l_authenticated_username := attached_auth_login
 
 							if auth_successful then
 								handle_authenticated (auth, req, res)
@@ -142,18 +136,12 @@ feature -- Basic operations
 						end
 					end
 				else
-	--				-- Request does not contain Authorization header.
-	--				if req.path_info.same_string_general ("/login") then
-						handle_unauthorized ("Please provide credential ...", req, res, auth_stale)
-	--				elseif req.path_info.starts_with_general ("/protected/") then
-	--						-- any "/protected/*" url
-	--					handle_unauthorized ("Protected area, please sign in before", req, res, auth_stale)
-	--				else
-	--					handle_anonymous (req, res)
-	--				end
+					-- Request does not contain Authorization header.
+					handle_unauthorized ("Please provide credential ...", req, res, auth_stale)
 				end
 			else
 				-- These areas can be accessed withouth authentication.
+
 				-- NOTE: The client could have sent an Authorization header for these areas,
 				-- even if this is not necessary.
 				-- Therefore, we would also have to process these requests, and keep our
@@ -167,7 +155,6 @@ feature -- Basic operations
 
 	handle_authenticated (auth: HTTP_AUTHORIZATION; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- User `a_username' is authenticated, execute request `req' with response `res'.
-			-- TODO We only consider Digest here...
 		require
 			valid_username: attached auth.login as attached_login and then not attached_login.is_empty
 			known_username: is_known_login (attached_login)
@@ -242,11 +229,10 @@ feature -- Basic operations
 					then
 						HA1 := attached_auth.compute_hash_a1 (attached_login, attached_server_realm, attached_server_password, server_algorithm, server_nonce_list.last)
 
-						HA2 := attached_auth.compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, void, server_qop, true)
+						HA2 := attached_auth.compute_hash_a2 (attached_server_method, attached_server_uri, server_algorithm, server_qop, true)
 
 						rspauth := attached_auth.compute_expected_response (HA1, HA2, server_nonce_list.last, server_qop, server_algorithm, attached_auth.nc_value, attached_auth.cnonce_value)
 
-						-- TODO Replace
 						-- TODO What happens rspauth is wrong?
 --						values.force ("rspauth=%"" + "abcd" + "%"")
 
@@ -299,11 +285,7 @@ feature -- Basic operations
 	handle_unauthorized (a_description: STRING; req: WSF_REQUEST; res: WSF_RESPONSE; stale: BOOLEAN)
 			-- Restricted page, authenticated user is required.
 			-- Send `a_description' as part of the response.
-			--
-			-- We do not
-			-- TODO Result could be stale.
 		local
-			h: HTTP_HEADER
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
 			values: LINKED_LIST[STRING]
@@ -345,13 +327,13 @@ feature -- Basic operations
 			end
 
 --			-- Domains
---			-- TODO Why does Firefox also send Authorization header for /public area?
+--			-- TODO Test with cURL. Firefox and Chrom just ignore this.
 --			values.force ("domain=%"/login /protectred%"")
 
---			values.force ("Basic realm=%"" + server_realm +"%"")
+			values.force ("Basic realm=%"" + server_realm +"%"")
 
 			-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
-			-- TODO Line continuation for better readability.
+			-- FIXME Line continuation for better readability.
 			page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 
 --			-- ETag
@@ -359,7 +341,6 @@ feature -- Basic operations
 
 			page.set_body (s)
 
---			print("page.header.string:%N")
 			PRINT(page.header.string)
 			io.new_line
 
@@ -371,7 +352,6 @@ feature -- Parameters
 	-- TODO Also support auth-int.	
 	-- TODO If we suggest multiple alternatives, use an arrayed_list istead.
 	server_qop: STRING = "auth"
---	server_nonce: STRING
 	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
 	server_algorithm: STRING = "MD5"
 	server_realm: STRING = "testrealm@host.com"
@@ -391,7 +371,6 @@ feature -- Nonce
 		require
 			private_key_exists: attached private_key
 		local
-			nonce_string: STRING_8
 			date_time: DATE_TIME
 			http_time: HTTP_DATE
 			base64_encoder: BASE64
@@ -426,8 +405,6 @@ feature -- Nonce
 
 	init_private_key
 			-- Initialize the private key.
-			-- FIXME We always want a new private key...
-			-- TODO Call this at proper place.
 		local
 			random_int: RANDOM
 			l_seed: INTEGER
@@ -449,15 +426,12 @@ feature -- Nonce
 			io.putstring ("Private key: " + private_key.out + "%N")
 		end
 
-
-
-		-- TODO Test by simply adding a nonce to the server list.
-		-- Make method ONCE ADD NONCE.
-		add_nonce_once
-			once
-				io.putstring ("Called add_nonce_once%N")
-				server_nonce_list.force (getfreshnonce)
-			end
+	add_nonce_once
+			-- Add one nonce, s.t. we can test the stale field.
+		once
+			io.putstring ("Called add_nonce_once%N")
+			server_nonce_list.force (getfreshnonce)
+		end
 
 
 feature -- Helper
