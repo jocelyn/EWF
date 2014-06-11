@@ -147,7 +147,6 @@ feature {NONE} -- Analyze
 			is_digest: is_digest
 		local
 			empty_string_8: STRING_8
-			h: detachable READABLE_STRING_8
 			realm_value: detachable READABLE_STRING_8
 			nonce_value: detachable READABLE_STRING_8
 			nc_value: detachable READABLE_STRING_8
