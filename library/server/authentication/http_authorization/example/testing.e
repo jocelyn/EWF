@@ -17,10 +17,9 @@ feature
 			auth: HTTP_AUTHORIZATION
 			authorization_string: STRING
 			www_authenticate_string: STRING
-			authorized: BOOLEAN
 			login, password, realm, method, uri, algorithm, qop, nonce: STRING
 			HA1, HA2: STRING
-			rspauth, expected_rspauth: STRING
+			rspauth: STRING
 			authentication_method: STRING
 		do
 			io.putstring ("TESTING... %N")
@@ -42,11 +41,11 @@ feature
 
 			create auth.make (authorization_string)
 
-			HA1 := auth.compute_hash_a1 (login, realm, password, algorithm, nonce)
+			HA1 := auth.digest_hash_of_username_realm_and_password (login, realm, password, algorithm, nonce)
 
-			HA2 := auth.compute_hash_a2 (method, uri, algorithm, qop, true)
+			HA2 := auth.digest_hash_of_method_and_uri (method, uri, algorithm, qop, True)
 
-			rspauth := auth.compute_expected_response (HA1, HA2, nonce, qop, algorithm, "00000001", "a5a3399a2aa0895c")
+			rspauth := auth.digest_expected_response (HA1, HA2, nonce, qop, algorithm, "00000001", "a5a3399a2aa0895c")
 
 			check
 				rspauth.same_string ("a65658cb1cccea078b35c321a6ce3132");
@@ -81,7 +80,7 @@ feature
 feature
 
 	check_response_digest (authentication_method: STRING; password: STRING; authorization_string: STRING; http_method: STRING): BOOLEAN
-			-- Returns true iff the computed response matches the expected response.
+			-- Returns True iff the computed response matches the expected response.
 		local
 			auth: HTTP_AUTHORIZATION
 			authorized: BOOLEAN
@@ -90,16 +89,17 @@ feature
 			create auth.make (authorization_string)
 
 			if
-				attached auth.realm_value as attached_auth_realm and
-				attached auth.uri_value as attached_auth_uri and
+				attached auth.digest_data as d and then(
+				attached d.realm as attached_auth_realm and
+				attached d.uri as attached_auth_uri and
 				attached auth.login as attached_auth_login and
-				attached auth.nonce_value as attached_auth_nonce
+				attached d.nonce as attached_auth_nonce)
 			then
 				create nonces.make (0)
 
 				nonces.force (attached_auth_nonce)
 
-				authorized := auth.is_authorized_digest (attached_auth_login, password, attached_auth_realm, nonces, http_method, attached_auth_uri, auth.algorithm_value, auth.qop_value)
+				authorized := auth.is_authorized_digest (attached_auth_login, password, attached_auth_realm, nonces, http_method, attached_auth_uri, d.algorithm, d.qop)
 
 				Result := authorized and not auth.is_bad_request
 			else
