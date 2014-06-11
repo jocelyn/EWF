@@ -145,7 +145,7 @@ feature -- Basic operations
 			append_html_footer (req, s)
 
 			create page.make
-			if attached auth_authentication_info (req) as l_info then
+			if attached auth_digest_authentication_info (req) as l_info then
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			end
 
@@ -209,7 +209,7 @@ feature -- Basic operations
 			append_html_footer (req, s)
 
 			create page.make
-			if attached auth_authentication_info (req) as l_info then
+			if attached auth_digest_authentication_info (req) as l_info then
 					-- Should we send this if no user is authenticated?
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			end
@@ -251,7 +251,7 @@ feature -- Basic operations
 --				values.force ("algorithm=" + server_algorithm)
 
 					-- Stale
-				if auth_is_stale (req) then
+				if auth_digest_is_stale (req) then
 					io.put_string ("Nonce was stale.%N")
 
 					values.force ("stale=TRUE")
@@ -287,15 +287,16 @@ feature -- Internal: Authentication
 
 	auth_username_variable_name: STRING = "_auth.username"
 	auth_error_message_variable_name: STRING = "_auth.error_message"
-	auth_authentication_info_variable_name: STRING = "_auth.authentication_info"
-	auth_stale_variable_name: STRING = "_auth.stale"
+	auth_digest_authentication_info_variable_name: STRING = "_auth.digest.authentication_info"
+	auth_digest_stale_variable_name: STRING = "_auth.digest.stale"
 
 	is_authentication_checked (req: WSF_REQUEST): BOOLEAN
 		do
-			Result := auth_username (req) /= Void or auth_error_message (req) /= Void
+			Result := req.http_authorization = Void or else (auth_username (req) /= Void or auth_error_message (req) /= Void)
 		end
 
 	is_authenticated (req: WSF_REQUEST): BOOLEAN
+			-- Is credentials from request `req' associated with authenticated user?
 		require
 			is_authentication_checked (req)
 		do
@@ -303,12 +304,16 @@ feature -- Internal: Authentication
 		end
 
 	get_auth_username (req: WSF_REQUEST)
+			-- Get authentication information from the request `req'.
+			-- note: access information using `auth_* (req: WSF_REQUEST)' function.
 		local
 			auth: HTTP_AUTHORIZATION
 		do
 				-- Reset user data
 			req.unset_execution_variable (auth_username_variable_name)
 			req.unset_execution_variable (auth_error_message_variable_name)
+			req.unset_execution_variable (auth_digest_authentication_info_variable_name)
+			req.unset_execution_variable (auth_digest_stale_variable_name)
 
 				-- Get new data if any
 			if attached req.http_authorization as l_http_authorization then
@@ -334,7 +339,7 @@ feature -- Internal: Authentication
 							io.put_string ("Authorized: False.%N")
 							io.put_string ("Stale: " + auth.stale.out + "%N")
 							if auth.stale then
-								req.set_execution_variable (auth_stale_variable_name, True)
+								req.set_execution_variable (auth_digest_stale_variable_name, True)
 							end
 						end
 						if
@@ -343,7 +348,7 @@ feature -- Internal: Authentication
 							attached auth.digest_authentication_info (l_login, l_pwd, req.request_method, req.request_uri, server_algorithm, server_qop, server_nonce_list.last) -- Why .last ?
 							as l_authentication_info
 						then
-							req.set_execution_variable (auth_authentication_info_variable_name, l_authentication_info)
+							req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
 						end
 					else
 						req.set_execution_variable (auth_error_message_variable_name, "Unsupported HTTP Authorization for user %"" + l_login + "%"!")
@@ -355,10 +360,11 @@ feature -- Internal: Authentication
 				req.set_execution_variable (auth_error_message_variable_name, "No authentication.")
 			end
 		ensure
-			auth_username (req) /= Void xor auth_error_message (req) /= Void
+			req.http_authorization /= Void implies auth_username (req) /= Void xor auth_error_message (req) /= Void
 		end
 
 	auth_error_message (req: WSF_REQUEST): detachable READABLE_STRING_8
+			-- Error message related to authentication attempt.
 		do
 			if attached {READABLE_STRING_8} req.execution_variable (auth_error_message_variable_name) as m then
 				Result := m
@@ -366,20 +372,23 @@ feature -- Internal: Authentication
 		end
 
 	auth_username (req: WSF_REQUEST): detachable READABLE_STRING_8
+			-- Authenticated user name for request `req'.
 		do
 			if attached {READABLE_STRING_8} req.execution_variable (auth_username_variable_name) as u then
 				Result := u
 			end
 		end
 
-	auth_is_stale (req: WSF_REQUEST): BOOLEAN
+	auth_digest_is_stale (req: WSF_REQUEST): BOOLEAN
+			-- Is authentication stale for request `req'.
 		do
-			Result := req.execution_variable (auth_stale_variable_name) = True
+			Result := req.execution_variable (auth_digest_stale_variable_name) = True
 		end
 
-	auth_authentication_info (req: WSF_REQUEST): detachable READABLE_STRING_8
+	auth_digest_authentication_info (req: WSF_REQUEST): detachable READABLE_STRING_8
+			-- Authentication Info for request `req'.
 		do
-			if attached {READABLE_STRING_8} req.execution_variable (auth_authentication_info_variable_name) as s then
+			if attached {READABLE_STRING_8} req.execution_variable (auth_digest_authentication_info_variable_name) as s then
 				Result := s
 			end
 		end
