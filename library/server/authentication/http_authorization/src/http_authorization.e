@@ -59,11 +59,9 @@ feature -- Initialization
 
 						analyze_digest_auth (a_http_authorization.substring (i + 1, a_http_authorization.count))
 					else
-							-- We don't know authentication method.
-						is_bad_request := True
+						report_bad_request ("Unknown authentication method")
 					end
 				else
-						-- Bad format.
 					report_bad_request ("Bad format")
 				end
 			end
@@ -102,11 +100,13 @@ feature -- Initialization
 				create http_authorization.make_from_string ("Basic " + (create {BASE64}).encoded_string (utf.string_32_to_utf_8_string_8 (u + {STRING_32} ":" + p)))
 			elseif t.is_case_insensitive_equal (Digest_auth_type) then
 				type := Digest_auth_type
-				to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
-				create http_authorization.make_from_string (t + " ...NOT IMPLEMENTED")
-			else
+
+				-- TODO
 				to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
 				create http_authorization.make_from_string ("Digest ...NOT IMPLEMENTED")
+			else
+				to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
+				create http_authorization.make_from_string (t + " ...NOT IMPLEMENTED")
 			end
 		end
 
@@ -141,6 +141,8 @@ feature {NONE} -- Analyze
 		end
 
 	analyze_digest_auth (a_http_authorization: READABLE_STRING_8)
+			-- Analyze digest authentication.
+			-- Sets `is_bad_request', if necessary.
 		require
 			is_digest: is_digest
 		local
@@ -174,16 +176,13 @@ feature {NONE} -- Analyze
 				response_value.count /= 32
 			then
 					-- Response is not valid, set it to empty string.
-				io.put_string ("ERROR: Improper response.%N")
+				report_bad_request ("ERROR: Improper response: " + response_value + "%N")
 				response_value := empty_string_8
-				is_bad_request := True
-			end
-			if
+			elseif
 				response_value = Void
 				or else response_value.is_empty
 			then
-				io.put_string ("ERROR: Improper response.%N")
-				is_bad_request := True
+				report_bad_request ("ERROR: Improper response: Void or empty%N")
 			end
 
 				-- Parse realm
@@ -204,28 +203,22 @@ feature {NONE} -- Analyze
 			then
 					-- If the qop field is present, it has to be auth.
 					-- Other quality of protection is not supported so far.
+				report_bad_request ("ERROR: Improper qop: " + qop_value + "%N")
 				qop_value := empty_string_8
-				is_bad_request := True
-				io.put_string ("ERROR: Improper qop.%N")
 			end
 
 				-- Parse algorithm
 				--| Algorithm MUST NOT be quoted.
-				--| Nevertheless, cURL sens us quoted algorithm values.
+				--| Nevertheless, cURL sends us quoted algorithm values.
 				--| For the sake of robustness, we allow both quoted and unqoted algorithm values.
 			algorithm_value := l_headers.item ("algorithm")
-
-			check
-				is_MD5_algorithm: algorithm_value = Void or else (algorithm_value.is_empty or algorithm_value.is_case_insensitive_equal ("MD5"))
-			end
 			if
 				algorithm_value /= Void and then
-				not algorithm_value.is_case_insensitive_equal ("MD5")
+				not (algorithm_value.is_empty or algorithm_value.is_case_insensitive_equal ("MD5"))
 			then
-				-- If the algorithm field is present, it has to be MD5.							
-				io.put_string ("ERROR: Improper algorithm: " + algorithm_value + "%N")
+				-- If the algorithm field is present, it has to be MD5.		
+				report_bad_request ("ERROR: Improper algorithm: " + algorithm_value + "%N")
 				algorithm_value := empty_string_8
-				is_bad_request := True
 			end
 
 				-- Parse nc
@@ -235,9 +228,8 @@ feature {NONE} -- Analyze
 				nc_value.count /= 8
 			then
 					-- If the nc field is present, it has to have length 8.							
-				io.put_string ("ERROR: Improper nc.%N")
+				report_bad_request ("ERROR: Improper nc: " + nc_value + "%N")
 				nc_value := empty_string_8
-				is_bad_request := True
 			end
 
 				-- Parse cnonce
@@ -254,12 +246,12 @@ feature {NONE} -- Analyze
 				or uri_value = Void
 				or response_value = Void
 			then
-				io.put_string ("ERROR: Manadory field not attached.%N")
+				report_bad_request ("ERROR: Manadory field not attached.%N")
 				digest_data := Void
-				is_bad_request := True
 			else
+					-- Mandatory fields.
 				create d.make (realm_value, nonce_value, uri_value, response_value)
-					-- non mandatory field.
+					-- Non mandatory fields.
 				d.nc := nc_value
 				d.cnonce := cnonce_value
 				d.qop := qop_value
@@ -295,7 +287,6 @@ feature -- Access
 	http_authorization: IMMUTABLE_STRING_8
 
 	type: READABLE_STRING_8
-			-- We always have a type.	
 
 feature -- Access: basic			
 
@@ -328,8 +319,9 @@ feature -- Status report
 			--
 			-- Here we need the values which the server has sent in the WWW-Authenticate header.
 			--
+			-- URI may be changed by proxies. We take the one from the authorization-header?
+			--
 			-- TODO `a_server_nonce_list' should also contain latest nonce-count values from client.
-			-- TODO uri may be changed by proxies. Which uri should we take, the one from the request or the one from the authorization-header?
 			-- TODO This method could be modified s.t. it does not take the cleartext password as an argument.
 			-- TODO Be more flexible: Do not only support auth, MD5 etc.
 		require
@@ -385,6 +377,10 @@ feature -- Status report
 					ha1 := digest_hash_of_username_realm_and_password (a_username, a_server_realm, a_password, a_server_algorithm, l_nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
 					l_expected_response := digest_expected_response (ha1, ha2, l_nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
+
+					-- FIXME Also check whether nc is as expected.
+					-- If not, also check for staleness.
+					
 					if l_nonce_expected then
 							-- The nonce is the one we expected.
 						Result := l_expected_response.same_string (l_response)
@@ -490,17 +486,18 @@ feature -- Access: digest
 
 					values.force ("qop=%"" + l_qop + "%"")
 
-					check
-							-- This MUST be specified if a qop parameter is sent.
-						is_cnonce_attached: attached l_digest.cnonce as l_cnonce and then not l_cnonce.is_empty
-						is_nc_attached: attached l_digest.nc as l_nc and then not l_nc.is_empty
-					end
-				else
-					check
-							-- This MUST NOT be specified if the server did not send a qop parameter.
-						not_cnonce_attached: not attached l_digest.cnonce as l_cnonce or else not l_cnonce.is_empty
-						not_nc_attached: not attached l_digest.nc as l_nc or else not l_nc.is_empty
-					end
+					-- TODO Remove, this is already checked in requirements_satisfied.
+--					check
+--							-- This MUST be specified if a qop parameter is sent.
+--						is_cnonce_attached: attached l_digest.cnonce as l_cnonce and then not l_cnonce.is_empty
+--						is_nc_attached: attached l_digest.nc as l_nc and then not l_nc.is_empty
+--					end
+--				else
+--					check
+--							-- This MUST NOT be specified if the server did not send a qop parameter.
+--						not_cnonce_attached: not attached l_digest.cnonce as l_cnonce or else not l_cnonce.is_empty
+--						not_nc_attached: not attached l_digest.nc as l_nc or else not l_nc.is_empty
+--					end
 				end
 
 				if attached l_digest.cnonce as l_cnonce and then not l_cnonce.is_empty then
@@ -543,6 +540,10 @@ feature {NONE} -- Helper: access
 	header_values (h: READABLE_STRING_8): STRING_TABLE [READABLE_STRING_8]
 			-- Formatting
 			-- [key1=value1, key2="quoted value2", key3=value3]
+			-- Unqotes values, if necessary.
+			--
+			--| For the sake of robustness, does not check whether the value is quoted [unqoted],
+			--| but should actually [not] be quoted.
 		local
 			i,j,n: INTEGER
 			k: detachable READABLE_STRING_8
@@ -596,12 +597,16 @@ feature {NONE} -- Helper: access
 									-- Quoted
 								j := h.index_of ('"', i + 1)
 								if j > 0 then
+										-- Add unquoted value.
 									Result.force (h.substring (i + 1, j - 1), k)
 									i := j + 1
 								else
 										-- bad header?
 									Result.force (h.substring (i, n), k)
 									i := n + 1
+
+										-- TODO This should not happen, right?
+									check False end
 								end
 							else
 									-- Not quoted

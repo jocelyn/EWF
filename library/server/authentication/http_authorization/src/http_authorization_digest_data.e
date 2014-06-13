@@ -49,10 +49,11 @@ feature -- Access
 
 feature -- Status report
 
+		-- TODO Check this.
 	requirements_satisfied: BOOLEAN
 		do
 			if attached qop as l_qop and then not l_qop.is_empty then
-				Result := cnonce /= Void and nc /= Void
+				Result := (attached cnonce as l_cnonce and then not l_cnonce.is_empty) and (attached nc as l_nc and then not l_nc.is_empty)
 			else
 				Result := (not attached cnonce as l_cnonce or else l_cnonce.is_empty) and
 							(not attached nc as l_nc or else l_nc.is_empty)

@@ -25,8 +25,6 @@ feature {NONE} -- Initialization
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
 
-			init_private_key
-
 			create server_nonce_list.make (0)
 		end
 
@@ -86,7 +84,7 @@ feature -- Basic operations
 		do
 				-- Get authenticated information if any
 				-- note: to access result, one could use `auth_username (req)'
-			get_auth_username (req)
+			process_authentication (req)
 			l_authenticated_username := auth_username (req)
 
 				-- Decide whether authorization is needed.
@@ -243,6 +241,8 @@ feature -- Basic operations
 				new_nonce := new_nonce_value
 				server_nonce_list.force (new_nonce) --| Shouldn't it replace previous used nonce value, so instead of a list, we should have a list of list.
 
+					-- TODO nonce-count
+
 					-- Create response.
 				values.force ("Digest realm=%"" + server_realm +"%"")
 				values.force ("qop=%"" + server_qop + "%"")
@@ -303,7 +303,7 @@ feature -- Internal: Authentication
 			Result := auth_username (req) /= Void
 		end
 
-	get_auth_username (req: WSF_REQUEST)
+	process_authentication (req: WSF_REQUEST)
 			-- Get authentication information from the request `req'.
 			-- note: access information using `auth_* (req: WSF_REQUEST)' function.
 		local
@@ -397,6 +397,7 @@ feature -- Parameters
 
 		-- TODO Also support auth-int.	
 		-- TODO If we suggest multiple alternatives, use an arrayed_list istead.
+		-- TODO This should be a once, and also, the opaque value should be random.
 	server_qop: STRING = "auth"
 	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
 	server_algorithm: STRING = "MD5"
@@ -406,6 +407,29 @@ feature -- Parameters
 	server_nonce_list: ARRAYED_LIST [STRING]
 
 	private_key: INTEGER_32
+			-- Get the private key of the server
+		local
+			random_int: RANDOM
+			l_seed: INTEGER
+			l_time: TIME
+		once
+			create l_time.make_now
+
+     		l_seed := l_time.hour
+      		l_seed := l_seed * 60 + l_time.minute
+      		l_seed := l_seed * 60 + l_time.second
+      		l_seed := l_seed * 1000 + l_time.milli_second
+
+      		create random_int.set_seed (l_seed)
+
+			random_int.forth
+
+			Result := random_int.item
+
+			debug("http_authorization")
+				io.put_string ("Private key: " + private_key.out + "%N")
+			end
+		end
 
 feature -- Nonce
 
@@ -438,29 +462,6 @@ feature -- Nonce
 			Result := base64_encoder.encoded_string (Result)
 
 --			io.put_string ("Nonce: " + Result + "%N")
-		end
-
-	init_private_key
-			-- Initialize the private key.
-		local
-			random_int: RANDOM
-			l_seed: INTEGER
-			l_time: TIME
-		once
-			create l_time.make_now
-
-     		l_seed := l_time.hour
-      		l_seed := l_seed * 60 + l_time.minute
-      		l_seed := l_seed * 60 + l_time.second
-      		l_seed := l_seed * 1000 + l_time.milli_second
-
-      		create random_int.set_seed (l_seed)
-
-			random_int.forth
-
-			private_key := random_int.item
-
-			io.put_string ("Private key: " + private_key.out + "%N")
 		end
 
 	add_nonce_once
