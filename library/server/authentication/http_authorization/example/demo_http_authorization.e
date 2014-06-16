@@ -15,9 +15,22 @@ inherit
 	SHARED_HTML_ENCODER
 
 create
-	make_and_launch
+--	make_and_launch,
+	my_make
 
 feature {NONE} -- Initialization
+
+	my_make
+		local
+			test: BOOLEAN
+		do
+			create user_manager.make
+
+			user_manager.new_user ("eiffel", "world")
+			user_manager.new_user ("foo", "bar")
+
+			make_and_launch
+		end
 
 	initialize
 			-- Initialize current service.
@@ -25,55 +38,100 @@ feature {NONE} -- Initialization
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
 
-			create server_nonce_list.make (0)
+--			create server_nonce_list.make (0)
 		end
 
 feature -- Credentials
 
-	is_known_login (a_login: READABLE_STRING_GENERAL): BOOLEAN
+	is_known_login (a_login: STRING): BOOLEAN
 			-- Is `a_login' a known username?
 		do
-			Result := valid_credentials.has (a_login)
+			if attached user_manager as l_user_manager then
+				Result := l_user_manager.known_user (a_login)
+			end
 		end
 
-	is_valid_basic_credential (a_login: READABLE_STRING_GENERAL; a_auth: HTTP_AUTHORIZATION): BOOLEAN
+	is_valid_basic_credential (a_auth: HTTP_AUTHORIZATION): BOOLEAN
 			-- Is `a_login:a_password' a valid credential?
 		require
 			a_auth.is_basic
 		do
 			if
 				attached a_auth.password as l_auth_password and
-				attached valid_credentials.item (a_login) as l_passwd
+				attached a_auth.login as l_login
 			then
-				Result := l_auth_password.is_case_insensitive_equal (l_passwd)
+				if
+					user_manager.known_user (l_login) and then
+					attached user_manager.get_password (l_login) as l_passwd
+				then
+					Result := l_auth_password.is_case_insensitive_equal (l_passwd)
+				else
+					debug("http_authorization")
+					io.putstring ("Unauthorized basic, problem asdfasdf%N")
+					end
+				end
+
+			else
+				debug("http_authorization")
+					io.putstring ("Unauthorized basic%N")
+				end
 			end
 		ensure
-			Result implies is_known_login (a_login)
+--			Result implies is_known_login (l_login)
 		end
 
-	is_valid_digest_credential (a_login: READABLE_STRING_8; a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
+--	is_valid_digest_credential (a_login: READABLE_STRING_8; a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
+--			-- Is `a_login:a_password' a valid credential?
+--		require
+--			a_auth.is_digest
+--		local
+--			l_nc: INTEGER
+--		do
+--			if
+--				attached user_manager.get_password (a_login) as l_passwd and then
+--				attached user_manager.get_nonce (a_login) as l_nonce
+--			then
+--				l_nc := l_user_manager.get_nc (a_login)
+--				Result := a_auth.is_authorized_digest (server_realm, l_nonce, l_nc, req.request_method, req.request_uri, server_algorithm, server_qop)
+--			end
+--		ensure
+--			Result implies is_known_login (a_login)
+--		end
+
+	is_valid_digest_credential (a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
 			-- Is `a_login:a_password' a valid credential?
 		require
 			a_auth.is_digest
 		do
-			if attached valid_credentials.item (a_login) as l_passwd then
-				Result := a_auth.is_authorized_digest (a_login, l_passwd, server_realm, server_nonce_list, req.request_method, req.request_uri, server_algorithm, server_qop)
+			Result := a_auth.is_authorized_digest (user_manager.nonce_count, user_manager.password, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
+
+			debug("http_authorization")
+				io.putstring ("Digest auhorized: " + Result.out + "%N")
 			end
+
 		ensure
-			Result implies is_known_login (a_login)
+			-- TODO Move this to http_authorization class
+			Result implies
+			(
+				attached a_auth.login as l_login and then
+				attached user_manager.get_password (l_login) as l_pw and then
+				is_known_login (l_login) and then
+				user_manager.get_password (l_login).same_string (l_pw)
+			)
 		end
 
-	valid_credentials: STRING_TABLE [READABLE_STRING_8]
-			-- Password indexed by login.
-		once
-			create Result.make_caseless (3)
-			Result.force ("world", "eiffel")
-			Result.force ("bar", "foo")
-			Result.force ("password", "user")
-			Result.force ("Circle Of Life", "Mufasa")
-		ensure
-			not Result.is_empty
-		end
+
+--	valid_credentials: STRING_TABLE [READABLE_STRING_8]
+--			-- Password indexed by login.
+--		once
+--			create Result.make_caseless (3)
+--			Result.force ("world", "eiffel")
+--			Result.force ("bar", "foo")
+--			Result.force ("password", "user")
+--			Result.force ("Circle Of Life", "Mufasa")
+--		ensure
+--			not Result.is_empty
+--		end
 
 feature -- Basic operations
 
@@ -92,7 +150,7 @@ feature -- Basic operations
 				if l_authenticated_username /= Void then
 					handle_authenticated (l_authenticated_username, req, res)
 				else
-					if attached {WSF_STRING} req.query_parameter ("auth") as s_auth and then s_auth.same_string ("digest") then
+					if not attached req.http_authorization or attached {WSF_STRING} req.query_parameter ("auth") as s_auth and then s_auth.same_string ("digest") then
 						handle_unauthorized ("Please provide credential ...", "digest", req, res)
 					else
 						handle_unauthorized ("Please provide credential ...", "basic", req, res)
@@ -237,11 +295,13 @@ feature -- Basic operations
 			create values.make
 			if a_auth_type.is_case_insensitive_equal_general ("digest") then
 					-- Digest
-					-- Get a fresh nonce.
-				new_nonce := new_nonce_value
-				server_nonce_list.force (new_nonce) --| Shouldn't it replace previous used nonce value, so instead of a list, we should have a list of list.
 
-					-- TODO nonce-count
+					-- User gets a fresh nonce and nonce-count.
+					-- TODO How can I know the user?
+					-- We send a nonce to the user, but don't know his name yet.
+					-- Later, he will send us back the nonce
+					-- NOTE We don't have to know to whom we send the nonce.
+				new_nonce := user_manager.new_nonce
 
 					-- Create response.
 				values.force ("Digest realm=%"" + server_realm +"%"")
@@ -325,13 +385,13 @@ feature -- Internal: Authentication
 				elseif attached auth.login as l_login then
 						-- Check whether we know the username and the corresponding password.
 					if auth.is_basic then
-						if is_valid_basic_credential (l_login, auth) then
+						if is_valid_basic_credential (auth) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 						else
 							req.set_execution_variable (auth_error_message_variable_name, "Invalid credentials for user %"" + l_login + "%"!")
 						end
 					elseif auth.is_digest then
-						if is_valid_digest_credential (l_login, auth, req) then
+						if is_valid_digest_credential (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 							io.put_string ("Authorized: True.%N")
 						else
@@ -343,9 +403,12 @@ feature -- Internal: Authentication
 							end
 						end
 						if
-							attached valid_credentials.item (l_login) as l_pwd and then
-							not server_nonce_list.is_empty and then
-							attached auth.digest_authentication_info (l_login, l_pwd, req.request_method, req.request_uri, server_algorithm, server_qop, server_nonce_list.last) -- Why .last ?
+								-- FIXME
+							attached user_manager.get_password (l_login) as l_pwd and then
+							attached auth.digest_data as l_digest_data and then
+							attached l_digest_data.nonce as l_nonce and then
+							attached user_manager.exists_nonce (l_nonce) and then
+							attached auth.digest_authentication_info (l_login, l_pwd, req.request_method, req.request_uri, server_algorithm, server_qop, l_nonce) -- Why .last ?
 							as l_authentication_info
 						then
 							req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
@@ -404,72 +467,16 @@ feature -- Parameters
 	server_realm: STRING = "Enter password for DEMO"
 
 		-- TODO This could be a list of Tuples, s.t. each nonce is assigned the latest nc from the client.
-	server_nonce_list: ARRAYED_LIST [STRING]
+--	server_nonce_list: ARRAYED_LIST [STRING]
 
-	private_key: INTEGER_32
-			-- Get the private key of the server
-		local
-			random_int: RANDOM
-			l_seed: INTEGER
-			l_time: TIME
-		once
-			create l_time.make_now
 
-     		l_seed := l_time.hour
-      		l_seed := l_seed * 60 + l_time.minute
-      		l_seed := l_seed * 60 + l_time.second
-      		l_seed := l_seed * 1000 + l_time.milli_second
-
-      		create random_int.set_seed (l_seed)
-
-			random_int.forth
-
-			Result := random_int.item
-
-			debug("http_authorization")
-				io.put_string ("Private key: " + private_key.out + "%N")
-			end
-		end
 
 feature -- Nonce
 
-	new_nonce_value: STRING_8
-			-- Create a fresh nonce in the following format:
-			--		Base64(timeStamp : MD5(timeStamp : privateKey))
-			-- TODO Create nonce according to suggestion in RFC 2617
-		require
-			private_key_exists: attached private_key
-		local
-			date_time: DATE_TIME
-			http_time: HTTP_DATE
-			base64_encoder: BASE64
-			hash: MD5
-			time_string: STRING_8
-		do
-			create base64_encoder
-			create hash.make
-			create date_time.make_now_utc
-			create http_time.make_from_date_time (date_time)
-			time_string := http_time.string
---			io.put_string ("Time: " + time_string + "%N")
-			hash.update_from_string (time_string + ":" + private_key.out)
-			Result := hash.digest_as_string
-			Result.to_lower
-			Result.prepend (time_string + ":")
+	user_manager: USER_MANAGER
 
---			io.put_string ("Nonce before encoding: " + Result + "%N")
 
-			Result := base64_encoder.encoded_string (Result)
 
---			io.put_string ("Nonce: " + Result + "%N")
-		end
-
-	add_nonce_once
-			-- Add one nonce, s.t. we can test the stale field.
-		once
-			io.put_string ("Called add_nonce_once%N")
-			server_nonce_list.force (new_nonce_value)
-		end
 
 feature -- Helper
 

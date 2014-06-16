@@ -13,6 +13,7 @@
 		<library name="crypto" location="$ISE_LIBRARY\unstable\library\text\encryption\crypto\crypto.ecf"/>		
 		<library name="encoder" location="..\..\..\text\encoder\encoder.ecf"/>
 		<library name="time" location="$ISE_LIBRARY\library\time\time.ecf" />
+		<library name="demo" location="example/demo.ecf" />
 		<cluster name="src" location="./src" recursive="true"/>
 	</target>
 </system>

@@ -110,6 +110,13 @@ feature -- Initialization
 			end
 		end
 
+feature -- DELETE ME, for testing only
+
+	test_feature(a_user_manager: USER_MANAGER)
+		do
+
+		end
+
 feature {NONE} -- Analyze
 
 	report_bad_request (mesg: detachable READABLE_STRING_8)
@@ -290,6 +297,7 @@ feature -- Access
 
 feature -- Access: basic			
 
+	-- TODO This should not be detachable
 	login: detachable READABLE_STRING_8
 
 	password: detachable READABLE_STRING_8
@@ -312,8 +320,8 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
-	is_authorized_digest (a_username: READABLE_STRING_8; a_password: READABLE_STRING_8; a_server_realm: READABLE_STRING_8;
-				a_server_nonce_list: ARRAYED_LIST [STRING_8]; a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8;
+	is_authorized_digest (a_nonce_count_table: STRING_TABLE[INTEGER]; a_password_table: STRING_TABLE[STRING];
+				a_server_realm: READABLE_STRING_8; a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8;
 				a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8): BOOLEAN
 			-- Validates digest authentication.
 			--
@@ -321,23 +329,20 @@ feature -- Status report
 			--
 			-- URI may be changed by proxies. We take the one from the authorization-header?
 			--
+			-- TODO user_manager as an argument.
+			--
 			-- TODO `a_server_nonce_list' should also contain latest nonce-count values from client.
 			-- TODO This method could be modified s.t. it does not take the cleartext password as an argument.
 			-- TODO Be more flexible: Do not only support auth, MD5 etc.
 		require
-			server_username_set: attached a_username
-			server_password_set: attached a_password
 			server_realm_set: attached a_server_realm
 			server_method_set: attached a_server_method
 			server_uri_set: attached a_server_uri
-			server_nonce_list_set: attached a_server_nonce_list
 			is_digest: is_digest
 		local
 			ha1: STRING_8
 			ha2: STRING_8
 			l_expected_response: STRING_8
-			l_found_nonce: detachable READABLE_STRING_8
-			l_nonce_expected: BOOLEAN
 		do
 			if
 				attached digest_data as l_digest and then
@@ -350,68 +355,74 @@ feature -- Status report
 					-- Check whether we know the nonce from the Authorization-header.
 					-- XXX The following could be optimized, for example move to other position, start at end etc.
 					-- XXX We could also make use of 'across' for better readability.
-				if not a_server_nonce_list.is_empty then
-					if a_server_nonce_list.last.is_case_insensitive_equal (l_nonce) then
-						l_found_nonce := a_server_nonce_list.last
-						l_nonce_expected := True
-					else
-						across
-							a_server_nonce_list as ic
-						until
-							l_found_nonce /= Void
-						loop
-							l_found_nonce := ic.item
-							if l_found_nonce.is_case_insensitive_equal (l_nonce) then
-									-- Found
-							else
-								l_found_nonce := Void
-							end
-						end
-							-- QUESTION: if nonce is found in a_server_nonce_list
-							-- why is it not an expected nonce?						
-					end
-				end
+--				if not a_server_nonce_list.is_empty then
+--					if a_server_nonce_list.last.is_case_insensitive_equal (l_nonce) then
+--						l_found_nonce := a_server_nonce_list.last
+--						l_nonce_expected := True
+--					else
+--						-- NOTE: This is our interpretation of "stale".
+--						-- RFC 2617
+--						across
+--							a_server_nonce_list as ic
+--						until
+--							l_found_nonce /= Void
+--						loop
+--							l_found_nonce := ic.item
+--							if l_found_nonce.is_case_insensitive_equal (l_nonce) then
+--									-- Found
+--							else
+--								l_found_nonce := Void
+--							end
+--						end
+--							-- QUESTION: if nonce is found in a_server_nonce_list
+--							-- why is it not an expected nonce?						
+--					end
+--				else
+--					io.putstring ("TODO...%N")
+--				end
 
-				if l_found_nonce /= Void then
-					check expected_nonce: l_found_nonce.is_case_insensitive_equal (l_nonce) end
-					ha1 := digest_hash_of_username_realm_and_password (a_username, a_server_realm, a_password, a_server_algorithm, l_nonce)
+				if a_nonce_count_table.has (l_nonce) and attached login as l_login and then attached a_password_table.item (l_login) as l_pw then
+					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
 					l_expected_response := digest_expected_response (ha1, ha2, l_nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
 
 					-- FIXME Also check whether nc is as expected.
 					-- If not, also check for staleness.
-					
-					if l_nonce_expected then
-							-- The nonce is the one we expected.
-						Result := l_expected_response.same_string (l_response)
 
-						debug ("http_authorization")
-							if not Result then
-								io.put_string ("Expected response: " + l_expected_response + "%N")
-								io.put_string ("Actual response: " + l_response + "%N")
-							else
-								io.put_string ("Expected and actual response: " + l_expected_response + "%N")
-							end
-						end
-					else
-							-- The nonce is not the one we expected.
-							-- Maybe it is in the list of nonces from the client.
-							-- Then, the nonce could just be stale, and the user agent doesn't have to prompt for the credentials again.
-							-- The result is False anyway.
-						stale := l_expected_response.same_string (l_response)
-						debug ("http_authorization")
-							io.put_string ("Nonce is not the expected one. Stale: " + stale.out + "%N")
-						end
+--					if l_nonce_expected then
+--							-- The nonce is the one we expected.
+--						Result := l_expected_response.same_string (l_response)
+
+--						debug ("http_authorization")
+--							if not Result then
+--								io.put_string ("Expected response: " + l_expected_response + "%N")
+--								io.put_string ("Actual response: " + l_response + "%N")
+--							else
+--								io.put_string ("Expected and actual response: " + l_expected_response + "%N")
+--							end
+--						end
+--					else
+--							-- The nonce is not the one we expected.
+--							-- Maybe it is in the list of nonces from the client.
+--							-- Then, the nonce could just be stale, and the user agent doesn't have to prompt for the credentials again.
+--							-- The result is False anyway.
+--						stale := l_expected_response.same_string (l_response)
+--						debug ("http_authorization")
+--							io.put_string ("Nonce is not the expected one. Stale: " + stale.out + "%N")
+--						end
+--					end
+
+					if l_expected_response.same_string (l_response) then
+							-- TODO Check for staleness
+--						if a_user_manager.is_nonce_stale(l_nonce) then
+--							stale := true
+--						else
+							Result := true
+--						end
 					end
 				else
 					debug ("http_authorization")
 						io.put_string ("We don't know this nonce:%N   " + l_nonce + ".%N")
-						io.put_string ("We only know those:%N")
-						across
-							a_server_nonce_list as ic
-						loop
-							io.put_string ("   " + ic.item + ".%N")
-						end
 					end
 				end
 			else
