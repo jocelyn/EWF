@@ -194,6 +194,9 @@ feature -- Response header name
 			-- Indicates the authentication scheme that should be used to access the requested entity.
 			--| Example: WWW-Authenticate: Basic
 
+	header_authentication_info: STRING = "Authentication-Info"
+			-- Final step in digest authentication
+
 feature -- Cross-Origin Resource Sharing
 
 	header_access_control_allow_origin: STRING = "Access-Control-Allow-Origin"
