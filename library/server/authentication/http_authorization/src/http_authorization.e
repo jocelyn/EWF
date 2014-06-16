@@ -112,10 +112,10 @@ feature -- Initialization
 
 feature -- DELETE ME, for testing only
 
-	test_feature(a_user_manager: USER_MANAGER)
-		do
+--	test_feature(a_user_manager: USER_MANAGER)
+--		do
 
-		end
+--		end
 
 feature {NONE} -- Analyze
 

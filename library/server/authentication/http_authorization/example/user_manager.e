@@ -12,8 +12,9 @@ create
 
 feature -- initialization
 
-	make
+	make(ttl: INTEGER)
 		do
+			time_to_live := ttl
 			create nonce_count.make (0)
 			create password.make (0)
 		end
@@ -27,6 +28,9 @@ feature -- data
 
 	password: STRING_TABLE[STRING]
 		-- For username (key), stores current password (value).
+
+	time_to_live: INTEGER
+		-- Time to live for a nonce, in seconds
 
 feature {NONE} -- nonce creation
 
@@ -62,9 +66,9 @@ feature {NONE} -- nonce creation
 			Result.to_lower
 			Result.prepend (time_string + ":")
 
---			debug("user-manager")
---				io.put_string ("Nonce before encoding: " + Result + "%N")
---			end
+			debug("user-manager")
+				io.put_string ("Nonce before encoding: " + Result + "%N")
+			end
 
 			Result := base64_encoder.encoded_string (Result)
 
@@ -79,26 +83,23 @@ feature {NONE} -- nonce creation
 --				server_nonce_list.force (new_nonce_value)
 --		end
 
-feature -- access
+feature -- element change
 
 	new_user(a_user: STRING; a_password: STRING)
 			-- Add a new `a_user' with `a_password'.
 			-- Users also get a nonce if we only do basic authentication.
 		require
-			not known_user (a_user)
+			not exists_user (a_user)
 		do
 			new_password (a_user, a_password)
-
---			debug("user-manager")
---				io.putstring ("NEW USER: " + a_user + "%N")
---			end
 		ensure
-			known_user (a_user)
+			exists_user (a_user)
 		end
 
 
 	new_nonce: STRING
-			-- Creates a fresh nonce.
+			-- Creates a fresh nonce and stores it into `nonce_count', with a nonce-count value of 1.
+			-- Returns the nonce.
 			-- NOTE: We don't associate the nonce with a user.
 		local
 			l_nonce: STRING
@@ -123,7 +124,7 @@ feature -- access
 	increment_nc(user: STRING)
 			-- Increment nonce-count associated with `user'.
 		require
-			known_user (user)
+			exists_user (user)
 		local
 			l_nc: INTEGER
 		do
@@ -138,7 +139,7 @@ feature -- access
 
 feature -- status report
 
-	known_user(a_user: STRING): BOOLEAN
+	exists_user(a_user: STRING): BOOLEAN
 			-- Returns true, if there is a password associated with `a_user'.
 		do
 			Result := password.has_key (a_user)
@@ -149,25 +150,6 @@ feature -- status report
 --			end
 		end
 
-	is_nonce_stale(a_nonce: STRING): BOOLEAN
-			-- Returns true, if nonce has expired, i.e., is too old.
-		local
-			l_http_date: HTTP_DATE
-			l_duration: DATE_TIME_DURATION
-		do
-			-- TODO
-
-			l_http_date := get_time_from_nonce (a_nonce)
-
-			l_duration := l_http_date.date_time.definite_duration (create {DATE_TIME}.make_now)
-
-			debug ("user-manager")
-				io.putstring ("Age of nonce: " + l_duration.date_default_format_string)
-			end
-		end
-
-feature -- access
-
 	exists_nonce(a_nonce: STRING): BOOLEAN
 			-- Returns true, if we know `a_nonce'.
 		do
@@ -176,10 +158,36 @@ feature -- access
 			Result implies nonce_count.has (a_nonce)
 		end
 
+	is_nonce_stale(a_nonce: STRING): BOOLEAN
+			-- Returns true, if nonce has expired, i.e., is too old.
+		require
+			exists_nonce (a_nonce)
+		local
+			l_http_date: HTTP_DATE
+			l_duration: DATE_TIME_DURATION
+			age_in_seconds: INTEGER_64
+		do
+				-- TODO. Now, we always return FALSE
+
+			l_http_date := get_time_from_nonce (a_nonce)
+
+			l_duration := (create {DATE_TIME}.make_now_utc).relative_duration(l_http_date.date_time)
+
+			age_in_seconds := l_duration.seconds_count
+
+			Result := age_in_seconds > time_to_live
+
+			debug ("user-manager")
+				io.putstring ("Age of nonce in seconds: " + age_in_seconds.out + "%N")
+			end
+		end
+
+feature -- access
+
 	get_password(a_user: STRING): STRING
 			-- Get password associated with `a_user'.
 		require
-			known_user (a_user)
+			exists_user (a_user)
 		do
 			if attached password.item (a_user) as l_pw then
 				Result := l_pw
@@ -212,15 +220,22 @@ feature -- access
 
 			l_decoded_nonce := l_base_decoder.decoded_string (a_nonce)
 
-			l_index := l_decoded_nonce.index_of (':', 1)
+			l_index := l_decoded_nonce.last_index_of (':', l_decoded_nonce.count)
 
-			l_time_string := l_decoded_nonce.substring (0, l_index - 1);
-
-			debug("user-manager")
-				io.putstring ("Decoded time from nonce: " + l_time_string + "%N")
-			end
+			l_time_string := l_decoded_nonce.substring (1, l_index - 1)
 
 			create Result.make_from_string (l_time_string)
+
+			check
+				l_decoded_nonce.starts_with (l_time_string)
+				l_time_string.same_string (Result.debug_output)
+			end
+
+			debug("user-manager")
+				io.putstring ("Decoded nonce: " + l_decoded_nonce + "%N")
+				io.putstring ("Time in nonce: " + l_time_string + "%N")
+				io.putstring ("Result: " + Result.debug_output + "%N")
+			end
 		end
 
 

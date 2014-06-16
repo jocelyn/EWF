@@ -14,6 +14,12 @@ inherit
 
 	SHARED_HTML_ENCODER
 
+		-- TODO Remove
+	EXECUTION_ENVIRONMENT
+		rename
+			launch as e_launch
+		end
+
 create
 --	make_and_launch,
 	my_make
@@ -23,11 +29,21 @@ feature {NONE} -- Initialization
 	my_make
 		local
 			test: BOOLEAN
+			nonce: STRING
+			stale: BOOLEAN
 		do
-			create user_manager.make
+			create user_manager.make(10)
 
 			user_manager.new_user ("eiffel", "world")
 			user_manager.new_user ("foo", "bar")
+
+			nonce := user_manager.new_nonce
+
+			sleep(11000000000)
+
+			stale := user_manager.is_nonce_stale (nonce)
+
+			io.putstring ("Nonce stale: " + stale.out + "%N")
 
 			make_and_launch
 		end
@@ -43,11 +59,12 @@ feature {NONE} -- Initialization
 
 feature -- Credentials
 
+		-- DEPRECATED: Use user_manager instead
 	is_known_login (a_login: STRING): BOOLEAN
 			-- Is `a_login' a known username?
 		do
 			if attached user_manager as l_user_manager then
-				Result := l_user_manager.known_user (a_login)
+				Result := l_user_manager.exists_user (a_login)
 			end
 		end
 
@@ -61,7 +78,7 @@ feature -- Credentials
 				attached a_auth.login as l_login
 			then
 				if
-					user_manager.known_user (l_login) and then
+					user_manager.exists_user (l_login) and then
 					attached user_manager.get_password (l_login) as l_passwd
 				then
 					Result := l_auth_password.is_case_insensitive_equal (l_passwd)
