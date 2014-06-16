@@ -35,6 +35,8 @@ feature {NONE} -- Initialization
 
 			user_manager.new_user ("eiffel", "world")
 			user_manager.new_user ("foo", "bar")
+			user_manager.new_user ("password", "user")
+			user_manager.new_user ("Circle Of Life", "Mufasa")
 
 			nonce := user_manager.new_nonce
 
@@ -52,20 +54,9 @@ feature {NONE} -- Initialization
 		do
 			set_service_option ("port", 9090)
 			set_service_option ("verbose", True)
-
---			create server_nonce_list.make (0)
 		end
 
 feature -- Credentials
-
-		-- DEPRECATED: Use user_manager instead
-	is_known_login (a_login: STRING): BOOLEAN
-			-- Is `a_login' a known username?
-		do
-			if attached user_manager as l_user_manager then
-				Result := l_user_manager.exists_user (a_login)
-			end
-		end
 
 	is_valid_basic_credential (a_auth: HTTP_AUTHORIZATION): BOOLEAN
 			-- Is `a_login:a_password' a valid credential?
@@ -93,7 +84,7 @@ feature -- Credentials
 				end
 			end
 		ensure
---			Result implies is_known_login (l_login)
+			Result implies (attached a_auth.login as l_login and then user_manager.exists_user (l_login))
 		end
 
 --	is_valid_digest_credential (a_login: READABLE_STRING_8; a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
@@ -131,24 +122,11 @@ feature -- Credentials
 			(
 				attached a_auth.login as l_login and then
 				attached user_manager.get_password (l_login) as l_pw and then
-				is_known_login (l_login) and then
+				user_manager.exists_user (l_login) and then
 				user_manager.get_password (l_login).same_string (l_pw)
 			)
 		end
-
-
---	valid_credentials: STRING_TABLE [READABLE_STRING_8]
---			-- Password indexed by login.
---		once
---			create Result.make_caseless (3)
---			Result.force ("world", "eiffel")
---			Result.force ("bar", "foo")
---			Result.force ("password", "user")
---			Result.force ("Circle Of Life", "Mufasa")
---		ensure
---			not Result.is_empty
---		end
-
+		
 feature -- Basic operations
 
 	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
@@ -194,7 +172,7 @@ feature -- Basic operations
 			-- Authentication `a_auth' verified, execute request `req' with response `res'.
 		require
 			a_username: a_username /= Void
-			known_username: is_known_login (a_username)
+			known_username: user_manager.exists_user (a_username)
 		local
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE

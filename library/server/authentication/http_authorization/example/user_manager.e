@@ -68,14 +68,6 @@ feature {NONE} -- nonce creation
 			end
 		end
 
-
---		add_nonce_once
---				-- Add one nonce, s.t. we can test the stale field.
---			once
---				io.put_string ("Called add_nonce_once%N")
---				server_nonce_list.force (new_nonce_value)
---		end
-
 feature -- element change
 
 	new_user(a_user: STRING; a_password: STRING)
