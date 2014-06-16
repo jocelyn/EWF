@@ -12,11 +12,14 @@ create
 
 feature -- initialization
 
-	make(ttl: INTEGER)
+	make(a_ttl: INTEGER)
+			-- Set `time_to_live' for nonces to `a_ttl'.
 		do
-			time_to_live := ttl
+			time_to_live := a_ttl
 			create nonce_count.make (0)
 			create password.make (0)
+		ensure
+			ttl_set: time_to_live = a_ttl
 		end
 
 feature -- data
@@ -38,41 +41,31 @@ feature {NONE} -- nonce creation
 			-- Create a fresh nonce in the following format:
 			--		Base64(timeStamp : MD5(timeStamp : privateKey))
 			-- TODO Create nonce according to suggestion in RFC 2617
-		require
-			-- FIXME Not required
-			private_key_exists: attached private_key
 		local
 			date_time: DATE_TIME
 			http_time: HTTP_DATE
 			base64_encoder: BASE64
 			hash: MD5
-			time_string: STRING_8
 			l_priv_key: INTEGER
 		do
 			create base64_encoder
 			create hash.make
 			create date_time.make_now_utc
 			create http_time.make_from_date_time (date_time)
-			time_string := http_time.string
-
-			debug("user-manager")
-				io.put_string ("Time: " + time_string + "%N")
-			end
 
 			l_priv_key := private_key
 
-			hash.update_from_string (time_string + ":" + l_priv_key.out)
+				-- Compute nonce.
+			hash.update_from_string (http_time.string + ":" + l_priv_key.out)
 			Result := hash.digest_as_string
 			Result.to_lower
-			Result.prepend (time_string + ":")
+			Result.prepend (http_time.string + ":")
+
+			Result := base64_encoder.encoded_string (Result)
 
 			debug("user-manager")
 				io.put_string ("Nonce before encoding: " + Result + "%N")
 			end
-
-			Result := base64_encoder.encoded_string (Result)
-
---			io.put_string ("Nonce: " + Result + "%N")
 		end
 
 
@@ -86,8 +79,7 @@ feature {NONE} -- nonce creation
 feature -- element change
 
 	new_user(a_user: STRING; a_password: STRING)
-			-- Add a new `a_user' with `a_password'.
-			-- Users also get a nonce if we only do basic authentication.
+			-- Add new `a_user' with corresponding `a_password'.
 		require
 			not exists_user (a_user)
 		do
@@ -100,7 +92,6 @@ feature -- element change
 	new_nonce: STRING
 			-- Creates a fresh nonce and stores it into `nonce_count', with a nonce-count value of 1.
 			-- Returns the nonce.
-			-- NOTE: We don't associate the nonce with a user.
 		local
 			l_nonce: STRING
 		do
@@ -110,44 +101,54 @@ feature -- element change
 
 			Result := l_nonce
 		ensure
-			-- TODO
+			not Result.is_empty
 		end
 
 	new_password(a_user: STRING; a_password: STRING)
-			-- Associates fresh `a_password' with `a_user'.
+			-- Set password corresponding to `a_user' to `a_password'.
 		do
 			password.force (a_password, a_user)
 		ensure
-			password.has (a_user)
+			user_exists: exists_user (a_user)
+			password_set: get_password (a_user).same_string (a_password)
 		end
 
-	increment_nc(user: STRING)
+	increment_nc(a_nonce: STRING)
 			-- Increment nonce-count associated with `user'.
 		require
-			exists_user (user)
+			exists_nonce (a_nonce)
 		local
 			l_nc: INTEGER
 		do
-			l_nc := nonce_count.item (user)
+			l_nc := nonce_count.item (a_nonce)
+
+
+			debug ("user-manager")
+				io.putstring ("Old nonce-count: " + l_nc.out + "%N")
+			end
+
+
 			l_nc := l_nc + 1
 
-			nonce_count.force (l_nc, user)
+
+			debug ("user-manager")
+				io.putstring ("New nonce-count: " + l_nc.out + "%N")
+			end
+
+			nonce_count.force (l_nc, a_nonce)
 		ensure
-			-- TODO Incremented.
-			-- Can we use OLD here?
+				-- FIXME
+--			incremented: (old nonce_count).item (a_nonce) = nonce_count.item (a_nonce) + 1
 		end
 
 feature -- status report
 
 	exists_user(a_user: STRING): BOOLEAN
-			-- Returns true, if there is a password associated with `a_user'.
+			-- Returns true, if we know `a_user'.
 		do
-			Result := password.has_key (a_user)
-
---			debug("user-manager")
---				io.putstring ("Knows user " + a_user + ": " + Result.out + "%N")
---				across password.current_keys as cur_key loop io.putstring ("Key: " + cur_key.item + "%N") end
---			end
+			Result := password.has (a_user)
+		ensure
+			Result implies password.has (a_user)
 		end
 
 	exists_nonce(a_nonce: STRING): BOOLEAN
@@ -159,7 +160,7 @@ feature -- status report
 		end
 
 	is_nonce_stale(a_nonce: STRING): BOOLEAN
-			-- Returns true, if nonce has expired, i.e., is too old.
+			-- Returns true, if nonce has expired, i.e., is older than `time_to_live'.
 		require
 			exists_nonce (a_nonce)
 		local
@@ -192,6 +193,7 @@ feature -- access
 				Result := l_pw
 			else
 					-- This cannot happen.
+					-- TODO Is there a better way to write this?
 				Result := ""
 				check False end
 			end
@@ -203,10 +205,12 @@ feature -- access
 			exists_nonce (a_nonce)
 		do
 			Result := nonce_count.item (a_nonce)
+		ensure
+			nc_non_negative: nonce_count.item (a_nonce) >= 0
 		end
 
 	get_time_from_nonce(a_nonce: STRING): HTTP_DATE
-			-- Get time encoded in nonce associated with `a_user'.
+			-- Get time encoded in `a_nonce'.
 		require
 			exists_nonce(a_nonce)
 		local
@@ -229,19 +233,13 @@ feature -- access
 				l_decoded_nonce.starts_with (l_time_string)
 				l_time_string.same_string (Result.debug_output)
 			end
-
-			debug("user-manager")
-				io.putstring ("Decoded nonce: " + l_decoded_nonce + "%N")
-				io.putstring ("Time in nonce: " + l_time_string + "%N")
-				io.putstring ("Result: " + Result.debug_output + "%N")
-			end
 		end
 
 
 feature -- private key
 
 	private_key: INTEGER_32
-			-- Get the private key of the server
+			-- Get or compute the private key of the server
 		local
 			random_int: RANDOM
 			l_seed: INTEGER
@@ -267,6 +265,5 @@ feature -- private key
 
 
 invariant
-	-- All lists have same keys
-
+	-- TODO
 end
