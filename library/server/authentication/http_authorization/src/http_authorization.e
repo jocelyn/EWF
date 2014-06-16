@@ -75,6 +75,8 @@ feature -- Initialization
 			io.put_string ("HTTP_AUTHORIZATION.make_basic_auth()%N")
 
 			make_custom_auth (u, p, Basic_auth_type)
+		ensure
+			is_basic
 		end
 
 	make_custom_auth (u: READABLE_STRING_32; p: READABLE_STRING_32; a_type: READABLE_STRING_8)
