@@ -36,6 +36,7 @@ feature -- Initialization
 			login := Void
 			password := Void
 
+
 			create http_authorization.make_from_string (a_http_authorization)
 			create t.make_empty
 			type := t
@@ -116,7 +117,7 @@ feature -- DELETE ME, for testing only
 
 --	test_feature(a_user_manager: USER_MANAGER)
 --		do
-
+--			io.putstring (s: STRING_8)
 --		end
 
 feature {NONE} -- Analyze
