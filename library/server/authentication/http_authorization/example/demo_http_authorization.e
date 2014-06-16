@@ -32,18 +32,16 @@ feature {NONE} -- Initialization
 			nonce: STRING
 			stale: BOOLEAN
 		do
-			create user_manager.make(10)
+			create user_manager.make(5)
 
 			user_manager.new_user ("eiffel", "world")
 			user_manager.new_user ("foo", "bar")
 
 			nonce := user_manager.new_nonce
 
-			sleep(11000000000)
+			sleep(5000000000)
 
 			stale := user_manager.is_nonce_stale (nonce)
-
-			io.putstring ("Nonce stale: " + stale.out + "%N")
 
 			make_and_launch
 		end

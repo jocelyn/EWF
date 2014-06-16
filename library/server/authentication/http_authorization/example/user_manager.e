@@ -167,8 +167,6 @@ feature -- status report
 			l_duration: DATE_TIME_DURATION
 			age_in_seconds: INTEGER_64
 		do
-				-- TODO. Now, we always return FALSE
-
 			l_http_date := get_time_from_nonce (a_nonce)
 
 			l_duration := (create {DATE_TIME}.make_now_utc).relative_duration(l_http_date.date_time)
@@ -179,6 +177,7 @@ feature -- status report
 
 			debug ("user-manager")
 				io.putstring ("Age of nonce in seconds: " + age_in_seconds.out + "%N")
+				io.putstring ("Nonce stale: " + Result.out + "%N")
 			end
 		end
 
