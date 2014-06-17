@@ -74,6 +74,22 @@ feature -- Status report
 			Result.append (response)
 		end
 
+feature -- Access
+
+	nc_as_integer: INTEGER
+			-- Returns integer value of `nc'.
+		require
+			nc_attached: attached nc
+		do
+			if attached nc as l_nc then
+				Result := l_nc.to_integer
+			else
+				check nc_not_attached: False end
+			end
+		ensure
+			nc_non_negative: Result >= 0
+		end
+
 feature -- Change
 
 	set_realm (v: like realm)

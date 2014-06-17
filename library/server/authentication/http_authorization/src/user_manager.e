@@ -180,6 +180,7 @@ feature -- access
 	password (a_user: STRING): detachable STRING
 			-- Returns password associated with `a_user', or Void, if `a_user' is unknown.
 		do
+				-- FIXME Here, item(a_user) returns Void, if there is no corresponding item, and does not return the empty string. Right?
 			if attached password_table.item (a_user) as l_pw then
 				Result := l_pw
 			else
@@ -227,7 +228,7 @@ feature -- access
 feature -- private key
 
 	private_key: INTEGER_32
-			-- Get or compute the private key of the server
+			-- Get or compute the private key of the server.
 		local
 			random_int: RANDOM
 			l_seed: INTEGER

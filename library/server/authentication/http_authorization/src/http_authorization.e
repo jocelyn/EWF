@@ -82,8 +82,7 @@ feature -- Initialization
 
 	make_custom_auth (u: READABLE_STRING_32; p: READABLE_STRING_32; a_type: READABLE_STRING_8)
 			-- Create a custom `a_type' authentication.
-			-- This does not yet support digest authentication.
-			-- Should I do this?
+			-- TODO Support for digest authentication.
 		require
 			a_type_accepted: a_type.is_case_insensitive_equal (Basic_auth_type)
 							or a_type.is_case_insensitive_equal (Digest_auth_type)
@@ -113,13 +112,6 @@ feature -- Initialization
 			end
 		end
 
-feature -- DELETE ME, for testing only
-
---	test_feature(a_user_manager: USER_MANAGER)
---		do
---			io.putstring (s: STRING_8)
---		end
-
 feature {NONE} -- Analyze
 
 	report_bad_request (mesg: detachable READABLE_STRING_8)
@@ -129,6 +121,8 @@ feature {NONE} -- Analyze
 		end
 
 	analyze_basic_auth (a_basic_auth: READABLE_STRING_8)
+			-- Analyze basic authentication.
+			-- Sets `is_bad_request', if necessary.
 		require
 			is_basic: is_basic
 		local
@@ -147,6 +141,8 @@ feature {NONE} -- Analyze
 				check
 					(create {HTTP_AUTHORIZATION}.make_custom_auth (u, p, type)).http_authorization ~ http_authorization
 				end
+			else
+				report_bad_request ("Bad format")
 			end
 		end
 
@@ -169,10 +165,10 @@ feature {NONE} -- Analyze
 			d: like digest_data
 			l_headers: like header_values
 		do
-			create empty_string_8.make_empty
-
 				-- Try to parse the fields, and set them to the empty string if they didn't match our expectations.
 				-- If fields are not present in the header, leave them unattached (i.e., Void).
+
+			create empty_string_8.make_empty
 
 			l_headers := header_values (a_http_authorization)
 
@@ -181,22 +177,15 @@ feature {NONE} -- Analyze
 
 				-- Parse response
 			response_value := l_headers.item ("response")
-			if
-				response_value /= Void and then
-				response_value.count /= 32
-			then
+			if response_value = Void then
+				report_bad_request ("ERROR: Improper response: Void%N")
+			elseif response_value.count /= 32 then
 					-- Response is not valid, set it to empty string.
 				report_bad_request ("ERROR: Improper response: " + response_value + "%N")
 				response_value := empty_string_8
-			elseif
-				response_value = Void
-				or else response_value.is_empty
-			then
-				report_bad_request ("ERROR: Improper response: Void or empty%N")
 			end
 
 				-- Parse realm
-				-- XXX Add further tests for validity of realm value.
 			realm_value := l_headers.item ("realm")
 
 				-- Parse nonce
@@ -213,21 +202,19 @@ feature {NONE} -- Analyze
 			then
 					-- If the qop field is present, it has to be auth.
 					-- Other quality of protection is not supported so far.
-				report_bad_request ("ERROR: Improper qop: " + qop_value + "%N")
+				report_bad_request ("ERROR: Illegal or unsupported qop: " + qop_value + "%N")
 				qop_value := empty_string_8
 			end
 
 				-- Parse algorithm
-				--| Algorithm MUST NOT be quoted.
-				--| Nevertheless, cURL sends us quoted algorithm values.
-				--| For the sake of robustness, we allow both quoted and unqoted algorithm values.
 			algorithm_value := l_headers.item ("algorithm")
 			if
 				algorithm_value /= Void and then
 				not (algorithm_value.is_empty or algorithm_value.is_case_insensitive_equal ("MD5"))
 			then
-				-- If the algorithm field is present, it has to be MD5.		
-				report_bad_request ("ERROR: Improper algorithm: " + algorithm_value + "%N")
+				-- If the algorithm field is present, it has to be MD5.	
+				-- Other algorithms are not supported so far.	
+				report_bad_request ("ERROR: Illegal or unsupported algorithm: " + algorithm_value + "%N")
 				algorithm_value := empty_string_8
 			end
 
@@ -235,9 +222,12 @@ feature {NONE} -- Analyze
 			nc_value := l_headers.item ("nc")
 			if
 				nc_value /= Void and then
-				nc_value.count /= 8
+				(
+					nc_value.count /= 8 or
+					nc_value.to_integer < 0
+				)
 			then
-					-- If the nc field is present, it has to have length 8.							
+					-- If the nc field is present, it has to have length 8 and be non-negative.							
 				report_bad_request ("ERROR: Improper nc: " + nc_value + "%N")
 				nc_value := empty_string_8
 			end
@@ -256,7 +246,7 @@ feature {NONE} -- Analyze
 				or uri_value = Void
 				or response_value = Void
 			then
-				report_bad_request ("ERROR: Manadory field not attached.%N")
+				report_bad_request ("ERROR: Mandatory field not attached.%N")
 				digest_data := Void
 			else
 					-- Mandatory fields.
@@ -271,7 +261,6 @@ feature {NONE} -- Analyze
 				digest_data := d
 			end
 		ensure
-			is_digest: is_digest
 			digest_values_attached:
 					(	attached login and
 						attached digest_data -- i.e realm, nonce, uri, and response are set!
@@ -282,8 +271,8 @@ feature {NONE} -- Analyze
 						l_digest_data.requirements_satisfied
 					) or is_bad_request
 
-			nc_value_length: attached digest_data as l_digest_data and then
-					attached l_digest_data.nc as l_nc and then l_nc.count /= 8 implies is_bad_request
+			nc_value: attached digest_data as l_digest_data and then
+					attached l_digest_data.nc as l_nc and then (l_nc.count /= 8 or l_nc.to_integer < 0) implies is_bad_request
 			supported_qop: attached digest_data as l_digest_data and then
 					attached l_digest_data.qop as l_qop implies (l_qop.is_empty and is_bad_request)
 					or l_qop.is_case_insensitive_equal ("auth")
@@ -300,7 +289,7 @@ feature -- Access
 
 feature -- Access: basic			
 
-	-- TODO This should not be detachable
+	-- TODO Should this be detachable?
 	login: detachable READABLE_STRING_8
 
 	password: detachable READABLE_STRING_8
@@ -323,30 +312,27 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
-	is_authorized_digest (a_nonce_count_table: STRING_TABLE[INTEGER]; a_password_table: STRING_TABLE[STRING];
+	is_authorized_digest (a_user_manager: USER_MANAGER;
 				a_server_realm: READABLE_STRING_8; a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8;
 				a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8): BOOLEAN
 			-- Validates digest authentication.
 			--
-			-- Here we need the values which the server has sent in the WWW-Authenticate header.
+			-- Here we need the values which the server has sent in the WWW-Authenticate header.			--
+			-- URI may be changed by proxies. We take the one from the authorization-header.
 			--
-			-- URI may be changed by proxies. We take the one from the authorization-header?
-			--
-			-- TODO user_manager as an argument.
-			--
-			-- TODO `a_server_nonce_list' should also contain latest nonce-count values from client.
 			-- TODO This method could be modified s.t. it does not take the cleartext password as an argument.
-			-- TODO Be more flexible: Do not only support auth, MD5 etc.
 		require
-			server_realm_set: attached a_server_realm
-			server_method_set: attached a_server_method
-			server_uri_set: attached a_server_uri
 			is_digest: is_digest
+			request_valid: not is_bad_request
 		local
 			ha1: STRING_8
 			ha2: STRING_8
 			l_expected_response: STRING_8
 		do
+			debug ("http_authorization")
+				io.put_string ("Checking digest authorization...%N")
+			end
+
 			if
 				attached digest_data as l_digest and then
 				(
@@ -384,7 +370,8 @@ feature -- Status report
 --					io.putstring ("TODO...%N")
 --				end
 
-				if a_nonce_count_table.has (l_nonce) and attached login as l_login and then attached a_password_table.item (l_login) as l_pw then
+				if a_user_manager.nonce_exists (l_nonce) and attached login as l_login and then attached a_user_manager.password (l_login) as l_pw then
+						-- Compute expected response
 					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
 					l_expected_response := digest_expected_response (ha1, ha2, l_nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
@@ -415,13 +402,24 @@ feature -- Status report
 --						end
 --					end
 
-					if l_expected_response.same_string (l_response) then
-							-- TODO Check for staleness
---						if a_user_manager.is_nonce_stale(l_nonce) then
---							stale := true
---						else
+						-- Check nonce-count.
+					if l_expected_response.same_string (l_response) and a_user_manager.nonce_count (l_nonce) + 1 = l_digest.nc_as_integer then
+						a_user_manager.increment_nonce_count (l_nonce)
+
+							-- Check for staleness.
+						if a_user_manager.is_nonce_stale(l_nonce) then
+							stale := true
+						else
 							Result := true
---						end
+						end
+					else
+						debug ("http_authorization")
+							if not l_expected_response.same_string (l_response) then
+								io.putstring ("Wrong response%N")
+							else
+								io.putstring ("Current nc: " + a_user_manager.nonce_count (l_nonce).out + ", expected: " + l_digest.nc_as_integer.out + "%N")
+							end
+						end
 					end
 				else
 					debug ("http_authorization")
@@ -429,9 +427,9 @@ feature -- Status report
 					end
 				end
 			else
-				debug ("http_authorization")
+--				debug ("http_authorization")
 					io.put_string ("Could not compute expected response since something was not attached.")
-				end
+--				end
 			end
 		end
 
@@ -673,9 +671,9 @@ feature {NONE} -- Implementation: Digest
 			a1.append (a_server_password)
 			Result := md5_hash (a1)
 
-			debug ("http_authorization")
-				io.put_string ("Computed HA1: " + Result + "%N")
-			end
+--			debug ("http_authorization")
+--				io.put_string ("Computed HA1: " + Result + "%N")
+--			end
 		end
 
 	digest_hash_of_method_and_uri (a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; for_auth_info: BOOLEAN): STRING_8
@@ -701,9 +699,9 @@ feature {NONE} -- Implementation: Digest
 
 			Result := md5_hash (a2)
 
-			debug ("http_authorization")
-				io.put_string ("Computed HA2: " + Result + "%N")
-			end
+--			debug ("http_authorization")
+--				io.put_string ("Computed HA2: " + Result + "%N")
+--			end
 		end
 
 	digest_expected_response (ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; a_server_nonce: READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_8; a_cnonce: detachable READABLE_STRING_8) : STRING_8
@@ -724,16 +722,16 @@ feature {NONE} -- Implementation: Digest
 				if a_nc /= Void and a_cnonce /= Void then
 						-- Standard (for digest) computation of response.
 					unhashed_response := ha1 + ":" + a_server_nonce + ":" + a_nc + ":" + a_cnonce + ":" + a_server_qop + ":" + ha2
-					debug ("http_authorization")
-						io.put_string ("Expected unhashed response: " + unhashed_response)
-						io.new_line
-					end
+--					debug ("http_authorization")
+--						io.put_string ("Expected unhashed response: " + unhashed_response)
+--						io.new_line
+--					end
 
 					Result := md5_hash (unhashed_response)
-					debug ("http_authorization")
-						io.put_string ("Expected unquoted response: " + Result)
-						io.new_line
-					end
+--					debug ("http_authorization")
+--						io.put_string ("Expected unquoted response: " + Result)
+--						io.new_line
+--					end
 				else
 						-- TODO Throw an exception. This should be excluded by invariant.
 					debug ("http_authorization")
@@ -767,5 +765,6 @@ feature -- Helpers: hash, md5
 invariant
 	type_valid: is_digest or is_basic or is_bad_request
 	is_valid_digest_or_bad_request: (is_digest and not is_bad_request) implies digest_data /= Void
+	login_attached: is_bad_request or attached login
 
 end

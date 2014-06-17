@@ -31,20 +31,12 @@ feature {NONE} -- Initialization
 			nonce: STRING
 			stale: BOOLEAN
 		do
-			create user_manager.make(3)
+			create user_manager.make(5)
 
 			user_manager.put_credentials ("eiffel", "world")
 			user_manager.put_credentials ("foo", "bar")
 			user_manager.put_credentials ("password", "user")
 			user_manager.put_credentials ("Circle Of Life", "Mufasa")
-
-			nonce := user_manager.new_nonce
-
-			sleep(2000000000)
-
-			stale := user_manager.is_nonce_stale (nonce)
-
-			user_manager.increment_nonce_count (nonce)
 
 			make_and_launch
 		end
@@ -73,13 +65,13 @@ feature -- Credentials
 				then
 					Result := l_auth_password.is_case_insensitive_equal (l_passwd)
 				else
-					debug("http_authorization")
+					debug("demo_server")
 					io.putstring ("Unauthorized basic, problem asdfasdf%N")
 					end
 				end
 
 			else
-				debug("http_authorization")
+				debug("demo_server")
 					io.putstring ("Unauthorized basic%N")
 				end
 			end
@@ -110,10 +102,10 @@ feature -- Credentials
 		require
 			a_auth.is_digest
 		do
-			Result := a_auth.is_authorized_digest (user_manager.nonce_count_table, user_manager.password_table, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
+			Result := a_auth.is_authorized_digest (user_manager, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
 
-			debug("http_authorization")
-				io.putstring ("Digest auhorized: " + Result.out + "%N")
+			debug("demo_server")
+				io.putstring ("...Digest authorized: " + Result.out + "%N")
 			end
 
 		ensure
@@ -133,6 +125,7 @@ feature -- Basic operations
 			-- <Precursor>
 		local
 			l_authenticated_username: like auth_username
+			debug_attached: BOOLEAN
 		do
 				-- Get authenticated information if any
 				-- note: to access result, one could use `auth_username (req)'
@@ -144,9 +137,21 @@ feature -- Basic operations
 				if l_authenticated_username /= Void then
 					handle_authenticated (l_authenticated_username, req, res)
 				else
-					if not attached req.http_authorization or attached {WSF_STRING} req.query_parameter ("auth") as s_auth and then s_auth.same_string ("digest") then
+--					if not attached req.http_authorization or (attached {WSF_STRING} req.query_parameter ("auth") as s_auth and then s_auth.is_case_insensitive_equal ("digest")) then
+					if not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest")) then
+						debug("demo_server")
+							io.put_string ("Reply with digest%N")
+						end
 						handle_unauthorized ("Please provide credential ...", "digest", req, res)
 					else
+						debug("demo_server")
+							io.put_string ("Reply with basic%N")
+							if attached req.execution_variable (auth_type_variable_name) as s_type then
+								io.put_string ("req.auth_param: " + s_type.out + "%N")
+							else
+								io.put_string ("req.auth_param: not attached%N")
+							end
+						end
 						handle_unauthorized ("Please provide credential ...", "basic", req, res)
 					end
 				end
@@ -161,8 +166,7 @@ feature -- Basic operations
 
 					-- NOTE: The client could have sent an Authorization header for these areas,
 					-- even if this is not necessary.
-					-- Therefore, we would also have to process these requests, and keep our
-					-- nonce-count up to date.
+					-- Therefore, the client's next nonce-count will not be the one expected.
 
 				handle_other (req, res)
 			end
@@ -339,6 +343,7 @@ feature -- Basic operations
 
 feature -- Internal: Authentication
 
+	auth_type_variable_name: STRING = "_auth.type"
 	auth_username_variable_name: STRING = "_auth.username"
 	auth_error_message_variable_name: STRING = "_auth.error_message"
 	auth_digest_authentication_info_variable_name: STRING = "_auth.digest.authentication_info"
@@ -368,23 +373,28 @@ feature -- Internal: Authentication
 			req.unset_execution_variable (auth_error_message_variable_name)
 			req.unset_execution_variable (auth_digest_authentication_info_variable_name)
 			req.unset_execution_variable (auth_digest_stale_variable_name)
+			req.unset_execution_variable (auth_type_variable_name)
 
 				-- Get new data if any
 			if attached req.http_authorization as l_http_authorization then
 					-- Try to parse the request
 				create auth.make (l_http_authorization)
 				if auth.is_bad_request then
-					io.put_string ("Error while creation of http_auth.")
+					debug("demo_server")
+						io.put_string ("Error while creation of http_auth. Invalid request!")
+					end
 					req.set_execution_variable (auth_error_message_variable_name, "Invalid request!")
 				elseif attached auth.login as l_login then
 						-- Check whether we know the username and the corresponding password.
 					if auth.is_basic then
+						req.set_execution_variable (auth_type_variable_name, "Basic")
 						if is_valid_basic_credential (auth) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 						else
 							req.set_execution_variable (auth_error_message_variable_name, "Invalid credentials for user %"" + l_login + "%"!")
 						end
 					elseif auth.is_digest then
+						req.set_execution_variable (auth_type_variable_name, "Digest")
 						if is_valid_digest_credential (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 							io.put_string ("Authorized: True.%N")
@@ -408,10 +418,14 @@ feature -- Internal: Authentication
 							req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
 						end
 					else
+							--HTTP_AUTHORIZATION requires that this is a bed request.
+						check bad_request: auth.is_bad_request end
 						req.set_execution_variable (auth_error_message_variable_name, "Unsupported HTTP Authorization for user %"" + l_login + "%"!")
 					end
 				else
 					req.set_execution_variable (auth_error_message_variable_name, "Missing username value!")
+						-- HTTP_AUTHORIZATION invariant prohibits this.
+					check login_attached: False end
 				end
 			else
 				req.set_execution_variable (auth_error_message_variable_name, "No authentication.")
@@ -425,6 +439,14 @@ feature -- Internal: Authentication
 		do
 			if attached {READABLE_STRING_8} req.execution_variable (auth_error_message_variable_name) as m then
 				Result := m
+			end
+		end
+
+	auth_type (req: WSF_REQUEST): detachable READABLE_STRING_8
+			-- Authentication type for request `req'.
+		do
+			if attached {READABLE_STRING_8} req.execution_variable (auth_type_variable_name) as t then
+				Result := t
 			end
 		end
 
