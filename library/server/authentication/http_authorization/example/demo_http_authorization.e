@@ -33,10 +33,10 @@ feature {NONE} -- Initialization
 		do
 			create user_manager.make(3)
 
-			user_manager.new_user ("eiffel", "world")
-			user_manager.new_user ("foo", "bar")
-			user_manager.new_user ("password", "user")
-			user_manager.new_user ("Circle Of Life", "Mufasa")
+			user_manager.put_credentials ("eiffel", "world")
+			user_manager.put_credentials ("foo", "bar")
+			user_manager.put_credentials ("password", "user")
+			user_manager.put_credentials ("Circle Of Life", "Mufasa")
 
 			nonce := user_manager.new_nonce
 
@@ -44,7 +44,7 @@ feature {NONE} -- Initialization
 
 			stale := user_manager.is_nonce_stale (nonce)
 
-			user_manager.increment_nc (nonce)
+			user_manager.increment_nonce_count (nonce)
 
 			make_and_launch
 		end
@@ -68,8 +68,8 @@ feature -- Credentials
 				attached a_auth.login as l_login
 			then
 				if
-					user_manager.exists_user (l_login) and then
-					attached user_manager.get_password (l_login) as l_passwd
+					user_manager.user_exists (l_login) and then
+					attached user_manager.password (l_login) as l_passwd
 				then
 					Result := l_auth_password.is_case_insensitive_equal (l_passwd)
 				else
@@ -84,7 +84,7 @@ feature -- Credentials
 				end
 			end
 		ensure
-			Result implies (attached a_auth.login as l_login and then user_manager.exists_user (l_login))
+			Result implies (attached a_auth.login as l_login and then user_manager.user_exists (l_login))
 		end
 
 --	is_valid_digest_credential (a_login: READABLE_STRING_8; a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
@@ -95,7 +95,7 @@ feature -- Credentials
 --			l_nc: INTEGER
 --		do
 --			if
---				attached user_manager.get_password (a_login) as l_passwd and then
+--				attached user_manager.password (a_login) as l_passwd and then
 --				attached user_manager.get_nonce (a_login) as l_nonce
 --			then
 --				l_nc := l_user_manager.get_nc (a_login)
@@ -110,7 +110,7 @@ feature -- Credentials
 		require
 			a_auth.is_digest
 		do
-			Result := a_auth.is_authorized_digest (user_manager.nonce_count, user_manager.password, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
+			Result := a_auth.is_authorized_digest (user_manager.nonce_count_table, user_manager.password_table, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
 
 			debug("http_authorization")
 				io.putstring ("Digest auhorized: " + Result.out + "%N")
@@ -121,12 +121,12 @@ feature -- Credentials
 			Result implies
 			(
 				attached a_auth.login as l_login and then
-				attached user_manager.get_password (l_login) as l_pw and then
-				user_manager.exists_user (l_login) and then
-				user_manager.get_password (l_login).same_string (l_pw)
+				attached user_manager.password (l_login) as l_pw and then
+				user_manager.user_exists (l_login) and then
+				attached user_manager.password (l_login) as l_pw_two and then l_pw_two.same_string (l_pw)
 			)
 		end
-		
+
 feature -- Basic operations
 
 	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
@@ -172,7 +172,7 @@ feature -- Basic operations
 			-- Authentication `a_auth' verified, execute request `req' with response `res'.
 		require
 			a_username: a_username /= Void
-			known_username: user_manager.exists_user (a_username)
+			known_username: user_manager.user_exists (a_username)
 		local
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
@@ -398,10 +398,10 @@ feature -- Internal: Authentication
 						end
 						if
 								-- FIXME
-							attached user_manager.get_password (l_login) as l_pwd and then
+							attached user_manager.password (l_login) as l_pwd and then
 							attached auth.digest_data as l_digest_data and then
 							attached l_digest_data.nonce as l_nonce and then
-							attached user_manager.exists_nonce (l_nonce) and then
+							attached user_manager.nonce_exists (l_nonce) and then
 							attached auth.digest_authentication_info (l_login, l_pwd, req.request_method, req.request_uri, server_algorithm, server_qop, l_nonce) -- Why .last ?
 							as l_authentication_info
 						then

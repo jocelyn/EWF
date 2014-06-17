@@ -16,8 +16,8 @@ feature -- initialization
 			-- Set `time_to_live' for nonces to `a_ttl'.
 		do
 			time_to_live := a_ttl
-			create nonce_count.make (0)
-			create password.make (0)
+			create nonce_count_table.make (0)
+			create password_table.make (0)
 		ensure
 			ttl_set: time_to_live = a_ttl
 		end
@@ -26,10 +26,10 @@ feature -- data
 
 		-- TODO Export to NONE
 
-	nonce_count: STRING_TABLE[INTEGER]
+	nonce_count_table: STRING_TABLE [INTEGER]
 		-- For nonce (key), stores current, last seen nonce-count (value).
 
-	password: STRING_TABLE[STRING]
+	password_table: STRING_TABLE [STRING]
 		-- For username (key), stores current password (value).
 
 	time_to_live: INTEGER
@@ -70,49 +70,49 @@ feature {NONE} -- nonce creation
 
 feature -- element change
 
-	new_user(a_user: STRING; a_password: STRING)
+	put_credentials (a_user: STRING; a_password: STRING)
 			-- Add new `a_user' with corresponding `a_password'.
 		require
-			not exists_user (a_user)
+			user_unknown: not user_exists (a_user)
 		do
-			new_password (a_user, a_password)
+			set_password (a_user, a_password)
 		ensure
-			exists_user (a_user)
+			user_known: user_exists (a_user)
 		end
 
 
 	new_nonce: STRING
-			-- Creates a fresh nonce and stores it into `nonce_count', with a nonce-count value of 1.
+			-- Creates a fresh nonce and stores it into `nonce_count_table', with a nonce-count value of 1.
 			-- Returns the nonce.
 		local
 			l_nonce: STRING
 		do
 			l_nonce := new_nonce_value;
 
-			nonce_count.force (0, l_nonce)
+			nonce_count_table.force (0, l_nonce)
 
 			Result := l_nonce
 		ensure
-			not Result.is_empty
+			not_empty: not Result.is_empty
 		end
 
-	new_password(a_user: STRING; a_password: STRING)
+	set_password (a_user: STRING; a_password: STRING)
 			-- Set password corresponding to `a_user' to `a_password'.
 		do
-			password.force (a_password, a_user)
+			password_table.force (a_password, a_user)
 		ensure
-			user_exists: exists_user (a_user)
-			password_set: get_password (a_user).same_string (a_password)
+			user_exists: user_exists (a_user)
+			password_set: attached password (a_user)as l_pw and then l_pw.same_string (a_password)
 		end
 
-	increment_nc(a_nonce: STRING)
+	increment_nonce_count (a_nonce: STRING)
 			-- Increment nonce-count associated with `user'.
 		require
-			exists_nonce (a_nonce)
+			nonce_known: nonce_exists (a_nonce)
 		local
 			l_nc: INTEGER
 		do
-			l_nc := nonce_count.item (a_nonce)
+			l_nc := nonce_count_table.item (a_nonce)
 
 
 			debug ("user-manager")
@@ -127,40 +127,41 @@ feature -- element change
 				io.putstring ("New nonce-count: " + l_nc.out + "%N")
 			end
 
-			nonce_count.force (l_nc, a_nonce)
+			nonce_count_table.force (l_nc, a_nonce)
 		ensure
 				-- FIXME
---			incremented: (old nonce_count).item (a_nonce) = nonce_count.item (a_nonce) + 1
+--			incremented: (old nonce_count_table).item (a_nonce) = nonce_count_table.item (a_nonce) + 1
 		end
 
 feature -- status report
 
-	exists_user(a_user: STRING): BOOLEAN
-			-- Returns true, if we know `a_user'.
+	user_exists (a_user: STRING): BOOLEAN
+			-- Is username `a_user' known?
 		do
-			Result := password.has (a_user)
+			Result := password_table.has (a_user)
 		ensure
-			Result implies password.has (a_user)
+				-- TODO Is there something like "if and only if"?
+			result_correct: (Result implies password_table.has (a_user)) and (not Result implies not password_table.has (a_user))
 		end
 
-	exists_nonce(a_nonce: STRING): BOOLEAN
-			-- Returns true, if we know `a_nonce'.
+	nonce_exists(a_nonce: STRING): BOOLEAN
+			-- Is nonce `a_nonce' known?
 		do
-			Result := nonce_count.has (a_nonce)
+			Result := nonce_count_table.has (a_nonce)
 		ensure
-			Result implies nonce_count.has (a_nonce)
+			result_correct: (Result implies nonce_count_table.has (a_nonce)) and (not Result implies not nonce_count_table.has (a_nonce))
 		end
 
 	is_nonce_stale(a_nonce: STRING): BOOLEAN
 			-- Returns true, if nonce has expired, i.e., is older than `time_to_live'.
 		require
-			exists_nonce (a_nonce)
+			nonce_known: nonce_exists (a_nonce)
 		local
 			l_http_date: HTTP_DATE
 			l_duration: DATE_TIME_DURATION
 			age_in_seconds: INTEGER_64
 		do
-			l_http_date := get_time_from_nonce (a_nonce)
+			l_http_date := time_from_nonce (a_nonce)
 
 			l_duration := (create {DATE_TIME}.make_now_utc).relative_duration(l_http_date.date_time)
 
@@ -176,35 +177,30 @@ feature -- status report
 
 feature -- access
 
-	get_password(a_user: STRING): STRING
-			-- Get password associated with `a_user'.
-		require
-			exists_user (a_user)
+	password (a_user: STRING): detachable STRING
+			-- Returns password associated with `a_user', or Void, if `a_user' is unknown.
 		do
-			if attached password.item (a_user) as l_pw then
+			if attached password_table.item (a_user) as l_pw then
 				Result := l_pw
 			else
-					-- This cannot happen.
-					-- TODO Is there a better way to write this?
-				Result := ""
-				check False end
+				Result := Void
 			end
-		end
-
-	get_nc(a_nonce: STRING): INTEGER
-			-- Get nonce-count associated with `a_nonce'.
-		require
-			exists_nonce (a_nonce)
-		do
-			Result := nonce_count.item (a_nonce)
 		ensure
-			nc_non_negative: nonce_count.item (a_nonce) >= 0
+			attachment_correct: (attached Result implies attached password_table.item (a_user)) and (not attached Result implies not attached password_table.item (a_user))
 		end
 
-	get_time_from_nonce(a_nonce: STRING): HTTP_DATE
-			-- Get time encoded in `a_nonce'.
+	nonce_count (a_nonce: STRING): INTEGER
+			-- Returns nonce-count associated with `a_nonce', or zero, if `a_nonce' is unknown.
+		do
+			Result := nonce_count_table.item (a_nonce)
+		ensure
+			nc_non_negative: nonce_count_table.item (a_nonce) >= 0
+		end
+
+	time_from_nonce(a_nonce: STRING): HTTP_DATE
+			-- Returns time encoded in `a_nonce'.
 		require
-			exists_nonce(a_nonce)
+			nonce_known: nonce_exists(a_nonce)
 		local
 			l_base_decoder: BASE64
 			l_decoded_nonce: STRING
@@ -222,8 +218,8 @@ feature -- access
 			create Result.make_from_string (l_time_string)
 
 			check
-				l_decoded_nonce.starts_with (l_time_string)
-				l_time_string.same_string (Result.debug_output)
+				prefix_correct: l_decoded_nonce.starts_with (l_time_string)
+				result_object: l_time_string.same_string (Result.debug_output)
 			end
 		end
 
