@@ -415,22 +415,30 @@ feature -- Status report
 --						end
 --					end
 
-						-- Check nonce-count.
-					if l_expected_response.same_string (l_response) and a_user_manager.nonce_count (l_nonce) + 1 = l_digest.nc_as_integer then
-						a_user_manager.increment_nonce_count (l_nonce)
+						-- Check response.
+--					if l_expected_response.same_string (l_response) and a_user_manager.nonce_count (l_nonce) + 1 = l_digest.nc_as_integer then
+					if l_expected_response.same_string (l_response) and attached l_digest.nc then
+							-- Check nonce-count.
+							-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
+							-- This way we can detect replays.
+						if l_digest.nc_as_integer > a_user_manager.nonce_count (l_nonce) then
+								-- Set nonce-count to current value.
+							a_user_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
 
-							-- Check for staleness.
-						if a_user_manager.is_nonce_stale(l_nonce) then
-							stale := true
-						else
-							Result := true
+								-- Check for staleness.
+							if a_user_manager.is_nonce_stale(l_nonce) then
+								stale := true
+							else
+									-- Passed all checks.
+								Result := true
+							end
 						end
 					else
 						debug ("http_authorization")
 							if not l_expected_response.same_string (l_response) then
 								io.putstring ("Wrong response%N")
 							else
-								io.putstring ("Current nc: " + a_user_manager.nonce_count (l_nonce).out + ", expected: " + l_digest.nc_as_integer.out + "%N")
+								io.putstring ("Expected nc: " + (a_user_manager.nonce_count (l_nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
 							end
 						end
 					end
@@ -440,12 +448,12 @@ feature -- Status report
 					end
 				end
 			else
---				debug ("http_authorization")
+				debug ("http_authorization")
 					io.put_string ("Could not compute expected response since something was not attached.")
---				end
+				end
 			end
 		ensure
-			Result implies
+			result_lightweight_check: Result implies
 			(
 				attached login as l_login and then
 				a_user_manager.user_exists (l_login)
@@ -491,70 +499,69 @@ feature -- Status report
 
 feature -- Access: digest
 
-		-- TODO 
-	digest_authentication_info (a_username, a_password: READABLE_STRING_8;
-			a_request_method: READABLE_STRING_8; a_request_uri: READABLE_STRING_8;
-			a_algorithm: READABLE_STRING_8; a_qop: READABLE_STRING_8; a_nonce: READABLE_STRING_8
-			): detachable STRING_8
-			-- Value for header "Authentication-Info", for the digest auth.
+		-- TODO
+	digest_authentication_info (a_user_manager: USER_MANAGER; a_request_method: READABLE_STRING_8): STRING_8
+			-- Value for header "Authentication-Info" success, for the digest auth.
+			-- This header is sent along with the 200 OK response from a previous successful authentication.
+			-- Used by the server to communicate some information regarding the successful authentication in the response.
+		require
+			is_digest: is_digest
+			request_ok: not is_bad_request
+			digest_data_attached: attached digest_data
+			known_user_and_password: attached login as l_login and then a_user_manager.user_exists (l_login)
 		local
 			values: LINKED_LIST [STRING]
 			rspauth: STRING_8
 			ha1, ha2: STRING_8
 		do
+				-- NOTE: We do not include a nextnonce field, because this nullifies the ability
+				-- to pipeline multiple requests to the same server.
+				-- Since pipelining is expected to be a fundamental technology for latency avoidance,
+				-- the performance penalty may be large.
+				
+			create Result.make_empty
+
 			if
-				is_digest and then
-				attached login as l_login and then a_username.same_string (l_login) and then
-				attached digest_data as l_digest
+				attached digest_data as l_digest and then
+				attached login as l_login and then
+				attached a_user_manager.password (l_login) as l_password and then
+				attached l_digest.nonce as l_nonce and then
+				attached l_digest.realm as l_realm
 			then
-					-- Add Authentication-Info header
-					-- Communicate some information regarding the successful authentication in the response.
 				create values.make
 
-				if attached l_digest.qop as l_qop and then not l_qop.is_empty then
+					-- qop
+				if attached l_digest.qop as l_qop then
 					check
 						is_auth: l_qop.is_case_insensitive_equal ("auth")
 					end
 
 					values.force ("qop=%"" + l_qop + "%"")
-
-					-- TODO Remove, this is already checked in requirements_satisfied.
---					check
---							-- This MUST be specified if a qop parameter is sent.
---						is_cnonce_attached: attached l_digest.cnonce as l_cnonce and then not l_cnonce.is_empty
---						is_nc_attached: attached l_digest.nc as l_nc and then not l_nc.is_empty
---					end
---				else
---					check
---							-- This MUST NOT be specified if the server did not send a qop parameter.
---						not_cnonce_attached: not attached l_digest.cnonce as l_cnonce or else not l_cnonce.is_empty
---						not_nc_attached: not attached l_digest.nc as l_nc or else not l_nc.is_empty
---					end
 				end
 
-				if attached l_digest.cnonce as l_cnonce and then not l_cnonce.is_empty then
+					-- cnonce
+				if attached l_digest.cnonce as l_cnonce then
 					values.force ("cnonce=%"" + l_cnonce + "%"")
 				end
 
-				if attached l_digest.nc as l_nc and then not l_nc.is_empty then
+					-- nonce-count
+				if attached l_digest.nc as l_nc then
 					values.force ("nc=%"" + l_nc + "%"")
 				end
 
-				if
-					attached l_digest.realm as l_realm_value
-				then
-					ha1 := digest_hash_of_username_realm_and_password (a_username, l_realm_value, a_password, a_algorithm, a_nonce)
-					ha2 := digest_hash_of_method_and_uri (a_request_method, a_request_uri, a_algorithm, a_qop, True)
-					rspauth := digest_expected_response (ha1, ha2, a_nonce, a_qop, a_algorithm, l_digest.nc, l_digest.cnonce)
+					-- rspauth
+					-- Optional response-auth directive to support mutual authentication.
+					-- The server proves that it knows the user's secret.
+				ha1 := digest_hash_of_username_realm_and_password (l_login, l_realm, l_password, l_digest.algorithm, l_nonce)
+				ha2 := digest_hash_of_method_and_uri (a_request_method, l_digest.uri, l_digest.algorithm, l_digest.qop, True)
+				rspauth := digest_expected_response (ha1, ha2, l_digest.nonce, l_digest.qop, l_digest.algorithm, l_digest.nc, l_digest.cnonce)
 
-						-- TODO What happens rspauth is wrong?
+					-- TODO What happens rspauth is wrong?
 --					values.force ("rspauth=%"" + "abcd" + "%"")
 
-						-- The rspauth parameter supports mutual authentication.
-						-- The server proves that it knows the user's secret.
-					values.force ("rspauth=%"" + rspauth + "%"")
-				end
-				create Result.make_empty
+				values.force ("rspauth=%"" + rspauth + "%"")
+
+					-- Create final Result
 				across
 					 values as ic
 				loop
@@ -564,6 +571,8 @@ feature -- Access: digest
 					end
 					Result.append_string (ic.item)
 				end
+			else
+				check not_allowed: False end
 			end
 		end
 
@@ -783,9 +792,9 @@ feature -- Helpers: hash, md5
 		end
 
 invariant
-	type_valid: is_digest or is_basic or is_bad_request
+	type_valid: is_digest or else is_basic or else is_bad_request
 	is_valid_digest_or_bad_request: (is_digest and not is_bad_request) implies digest_data /= Void
 	is_valid_basic_or_bad_request: (is_basic and not is_bad_request) implies (login /= Void and password /= Void)
-	login_attached: is_bad_request or attached login
+	login_attached: (not attached login) implies is_bad_request
 
 end

@@ -28,7 +28,7 @@ feature {NONE} -- Initialization
 
 	my_make
 		do
-			create user_manager.make(5)
+			create user_manager.make(10)
 
 				-- Insert demo credentials.
 			user_manager.put_credentials ("eiffel", "world")
@@ -66,17 +66,17 @@ feature -- Basic operations
 		local
 			l_authenticated_username: like auth_username
 		do
-				-- Get authenticated information, if any.
+				-- Get authentication information, if any.
 				-- NOTE: To access result, one could use `auth_username (req)'
 			process_authentication (req)
+
 			l_authenticated_username := auth_username (req)
 
 				-- Decide whether authorization is needed.
 			if req.path_info.starts_with_general ("/login") then
 				if l_authenticated_username /= Void then
-					handle_authenticated (l_authenticated_username, req, res)
+					handle_login_authenticated (l_authenticated_username, req, res)
 				else
---					if not attached req.http_authorization or (attached {WSF_STRING} req.query_parameter ("auth") as s_auth and then s_auth.is_case_insensitive_equal ("digest")) then
 					if not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest")) then
 						handle_unauthorized ("Please provide credential ...", "digest", req, res)
 					else
@@ -85,22 +85,21 @@ feature -- Basic operations
 				end
 			elseif req.path_info.starts_with_general ("/protected/") then
 				if l_authenticated_username /= Void then
-					handle_restricted (l_authenticated_username, req, res)
+					handle_restricted_authenticated (l_authenticated_username, req, res)
 				else
-					handle_restricted (l_authenticated_username, req, res)
+					handle_unauthorized ("This page is restricted to authenticated user!", "digest", req, res)
 				end
 			else
 					-- These areas can be accessed without authentication.
 
 					-- NOTE: The client could have sent an Authorization header for these areas,
 					-- even if this is not necessary.
-					-- Therefore, the client's next nonce-count will not be the one expected.
-
+					-- Therefore, we may miss some nonce-counts.
 				handle_other (req, res)
 			end
 		end
 
-	handle_authenticated (a_username: READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_login_authenticated (a_username: READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Authentication `a_auth' verified, execute request `req' with response `res'.
 		require
 			a_username: a_username /= Void
@@ -110,7 +109,7 @@ feature -- Basic operations
 			page: WSF_HTML_PAGE_RESPONSE
 		do
 			debug("demo_server")
-				io.put_string ("Handle authenticated...")
+				io.put_string ("Handle login authenticated...%N")
 			end
 
 			create s.make_empty
@@ -128,15 +127,18 @@ feature -- Basic operations
 			append_html_footer (req, s)
 
 			create page.make
+
 			if attached auth_digest_authentication_info (req) as l_info then
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
+			else
+				check no_auth_info: False end
 			end
 
 			page.set_body (s)
 			res.send (page)
 		end
 
-	handle_restricted (a_authenticated_username: detachable READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_restricted_authenticated (a_authenticated_username: READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Authentication `a_auth' verified, execute request `req' with response `res'.
 		local
 			s: STRING
@@ -144,33 +146,28 @@ feature -- Basic operations
 		do
 			create page.make
 
-
 			debug("demo_server")
-				io.put_string ("Handle restricted...")
+				io.put_string ("Handle restricted authenticated...%N")
 			end
 
 			create s.make_empty
 			append_html_header (a_authenticated_username, req, s)
 
 			s.append ("<p>")
-			if a_authenticated_username /= Void then
-				s.append ("User <strong>")
-				s.append (html_encoder.encoded_string (a_authenticated_username))
-				s.append ("</strong>")
-				s.append (" has access to this restricted page.")
-			else
-				s.append ("This page is restricted to authenticated user !")
-				page.set_status_code ({HTTP_STATUS_CODE}.unauthorized)
-				s.append ("Please sign in ..")
-			end
+			s.append ("User <strong>")
+			s.append (html_encoder.encoded_string (a_authenticated_username))
+			s.append ("</strong>")
+			s.append (" has access to this restricted page.")
 			s.append ("</p>")
 
 			append_html_menu (a_authenticated_username, req, s)
 			append_html_footer (req, s)
 
---			if attached auth_authentication_info (req) as l_info then
---				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
---			end
+			if attached auth_digest_authentication_info (req) as l_info then
+				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
+			else
+				check no_auth_info: False end
+			end
 
 			page.set_body (s)
 			res.send (page)
@@ -212,11 +209,16 @@ feature -- Basic operations
 			values: LINKED_LIST[STRING]
 			new_nonce: STRING
 		do
-			io.put_string ("HANDLE_UNAUTHORIZED%N")
+
+			debug("demo_server")
+				io.put_string ("Handle unauthorized...%N")
+			end
 
 			create s.make_empty
 			append_html_header (Void, req, s)
+
 			s.append ("<p>" + a_description + "</p>")
+
 			append_html_menu (Void, req, s)
 			append_html_footer (req, s)
 
@@ -242,7 +244,7 @@ feature -- Basic operations
 				if auth_digest_is_stale (req) then
 					io.put_string ("Nonce was stale.%N")
 
-					values.force ("stale=TRUE")
+					values.force ("stale=true")
 				end
 	--				-- Domains
 	--				-- TODO Test with cURL. Firefox and Chrom just ignore this.
@@ -286,6 +288,7 @@ feature -- Internal: Authentication
 			-- note: access information using `auth_* (req: WSF_REQUEST)' function.
 		local
 			auth: HTTP_AUTHORIZATION
+			l_authentication_info: STRING
 		do
 				-- Reset user data
 			req.unset_execution_variable (auth_username_variable_name)
@@ -310,31 +313,41 @@ feature -- Internal: Authentication
 						if is_valid_credential (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 						else
-							req.set_execution_variable (auth_error_message_variable_name, "Invalid credentials for user %"" + l_login + "%"!")
+							req.set_execution_variable (auth_error_message_variable_name, "Invalid basic credentials for user %"" + l_login + "%"!")
 						end
 					elseif auth.is_digest then
 						req.set_execution_variable (auth_type_variable_name, "Digest")
 						if is_valid_credential (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
-							io.put_string ("Authorized: True.%N")
+
+							if
+								attached user_manager.password (l_login) as l_pwd and then
+								attached auth.digest_data as l_digest_data and then
+								attached l_digest_data.nonce as l_nonce and then
+								user_manager.nonce_exists (l_nonce)
+							then
+								l_authentication_info :=  auth.digest_authentication_info (user_manager, req.request_method)
+								req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
+							else
+								check not_allowed: False end
+							end
+
+							debug("demo_server")
+								io.put_string ("Authorized: True.%N")
+								io.put_string ("Computed Authentication-Info%N")
+							end
+
 						else
-							req.set_execution_variable (auth_error_message_variable_name, "Invalid credentials for user %"" + l_login + "%"!")
-							io.put_string ("Authorized: False.%N")
-							io.put_string ("Stale: " + auth.stale.out + "%N")
+							req.set_execution_variable (auth_error_message_variable_name, "Invalid demo credentials for user %"" + l_login + "%"!")
+
+							debug("demo_server")
+								io.put_string ("Authorized: False.%N")
+								io.put_string ("Stale: " + auth.stale.out + "%N")
+							end
+
 							if auth.stale then
 								req.set_execution_variable (auth_digest_stale_variable_name, True)
 							end
-						end
-						if
-								-- FIXME
-							attached user_manager.password (l_login) as l_pwd and then
-							attached auth.digest_data as l_digest_data and then
-							attached l_digest_data.nonce as l_nonce and then
-							attached user_manager.nonce_exists (l_nonce) and then
-							attached auth.digest_authentication_info (l_login, l_pwd, req.request_method, req.request_uri, server_algorithm, server_qop, l_nonce) -- Why .last ?
-							as l_authentication_info
-						then
-							req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
 						end
 					else
 							--HTTP_AUTHORIZATION requires that this is a bed request.
@@ -342,9 +355,9 @@ feature -- Internal: Authentication
 						req.set_execution_variable (auth_error_message_variable_name, "Unsupported HTTP Authorization for user %"" + l_login + "%"!")
 					end
 				else
-					req.set_execution_variable (auth_error_message_variable_name, "Missing username value!")
 						-- HTTP_AUTHORIZATION invariant prohibits this.
 					check login_attached: False end
+					req.set_execution_variable (auth_error_message_variable_name, "Missing username value!")
 				end
 			else
 				req.set_execution_variable (auth_error_message_variable_name, "No authentication.")
@@ -403,7 +416,7 @@ feature -- Server parameters
 feature -- Users
 
 	user_manager: USER_MANAGER
-	
+
 feature -- Helper
 
 	append_html_header (a_username: detachable READABLE_STRING_8; req: WSF_REQUEST; s: STRING)

@@ -106,6 +106,7 @@ feature -- Change
 
 	set_nc (v: like nc)
 			-- Set `nc' to `v'.
+		require
 		do
 			nc := v
 		end

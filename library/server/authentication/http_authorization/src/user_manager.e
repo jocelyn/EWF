@@ -196,6 +196,15 @@ feature -- access
 			nc_non_negative: nonce_count_table.item (a_nonce) >= 0
 		end
 
+	set_nonce_count (a_nonce: STRING; a_nonce_count: INTEGER)
+			-- Set nonce-count associated with `a_nonce' to `a_nonce_count'.
+		require
+			nonce_exists (a_nonce)
+			nc_smaller: nonce_count (a_nonce) < a_nonce_count
+		do
+			nonce_count_table.force (a_nonce_count, a_nonce)
+		end
+
 	time_from_nonce(a_nonce: STRING): HTTP_DATE
 			-- Returns time encoded in `a_nonce'.
 		require
