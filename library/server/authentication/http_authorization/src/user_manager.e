@@ -33,6 +33,7 @@ feature {NONE} -- data
 
 	password_table: STRING_TABLE [STRING]
 		-- For username (key), stores current password (value).
+		-- See section 4.13 of RFC 2617 for information of how to store passwords.
 
 	time_to_live: INTEGER
 		-- Time to live for a nonce, in seconds.

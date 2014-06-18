@@ -1,5 +1,9 @@
 note
-	description : "simple application root class. This demo is for just one client!"
+	description : "[
+			Simple application root class. 
+			Server which supports both basic and digest authentication,
+			and can handle multiple users at the same time.
+		]"
 	date        : "$Date$"
 	revision    : "$Revision$"
 
@@ -14,14 +18,7 @@ inherit
 
 	SHARED_HTML_ENCODER
 
-		-- TODO Remove
-	EXECUTION_ENVIRONMENT
-		rename
-			launch as e_launch
-		end
-
 create
---	make_and_launch,
 	my_make
 
 feature {NONE} -- Initialization
@@ -54,7 +51,7 @@ feature {NONE} -- Initialization
 
 feature -- Credentials
 
-	is_valid_credential(a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
+	is_valid_authentication (a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
 			-- Is `a_auth' authorized basic or digest authentication?
 		do
 			if a_auth.is_basic then
@@ -83,17 +80,23 @@ feature -- Basic operations
 				if l_authenticated_username /= Void then
 					handle_login_authenticated (l_authenticated_username, req, res)
 				else
-					if not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest")) then
-						handle_unauthorized ("Please provide credential ...", "digest", req, res)
+						-- TODO Maybe the first part of the condition could be improved.
+					if (not (req.request_uri.has_substring ("auth=basic") or attached req.http_referer as l_ref and then l_ref.has_substring ("auth=basic"))) and (not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest"))) then
+						handle_unauthorized ("Please provide credential ...", "Digest", req, res)
 					else
-						handle_unauthorized ("Please provide credential ...", "basic", req, res)
+						handle_unauthorized ("Please provide credential ...", "Basic", req, res)
 					end
 				end
 			elseif req.path_info.starts_with_general ("/protected/") then
 				if l_authenticated_username /= Void then
 					handle_restricted_authenticated (l_authenticated_username, req, res)
 				else
-					handle_unauthorized ("This page is restricted to authenticated user!", "digest", req, res)
+						-- TODO Maybe the first part of the condition could be improved.
+					if (not (req.request_uri.has_substring ("auth=basic") or attached req.http_referer as l_ref and then l_ref.has_substring ("auth=basic"))) and (not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest"))) then
+						handle_unauthorized ("This page is restricted to authenticated user!", "Digest", req, res)
+					else
+						handle_unauthorized ("This page is restricted to authenticated user!", "Basic", req, res)
+					end
 				end
 			else
 					-- These areas can be accessed without authentication.
@@ -106,7 +109,7 @@ feature -- Basic operations
 		end
 
 	handle_login_authenticated (a_username: READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
-			-- Authentication `a_auth' verified, execute request `req' with response `res'.
+			-- Authentication `a_auth' for login page verified, execute request `req' with response `res'.
 		require
 			a_username: a_username /= Void
 			known_username: user_manager.user_exists (a_username)
@@ -137,7 +140,7 @@ feature -- Basic operations
 			if attached auth_digest_authentication_info (req) as l_info then
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			else
-				check no_auth_info: False end
+				check is_basic: attached auth_type (req) as l_type and then l_type.is_case_insensitive_equal ("Basic") end
 			end
 
 			page.set_body (s)
@@ -145,7 +148,7 @@ feature -- Basic operations
 		end
 
 	handle_restricted_authenticated (a_authenticated_username: READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
-			-- Authentication `a_auth' verified, execute request `req' with response `res'.
+			-- Authentication `a_auth' for restricted page verified, execute request `req' with response `res'.
 		local
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
@@ -180,7 +183,7 @@ feature -- Basic operations
 		end
 
 	handle_other (req: WSF_REQUEST; res: WSF_RESPONSE)
-			-- No user is authenticated, execute request `req' with response `res'.
+			-- No user is authenticated and no authentication needed, execute request `req' with response `res'.
 		local
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
@@ -207,7 +210,7 @@ feature -- Basic operations
 		end
 
 	handle_unauthorized (a_description: STRING; a_auth_type: READABLE_STRING_8; req: WSF_REQUEST; res: WSF_RESPONSE)
-			-- Restricted page, authenticated user is required.
+			-- Restricted page or login page, authenticated user is required.
 			-- Send `a_description' as part of the response.
 		local
 			s: STRING
@@ -247,15 +250,29 @@ feature -- Basic operations
 				values.force ("algorithm=" + server_algorithm)
 
 					-- Stale
+					-- The stale flag indicates that the previous request from the client was rejected because the nonce value was stale.
+					-- If stale is set to true, the client may wish to simply retry the request with a new encrypted response, without
+					-- reprompting the user for new credentials.
 				if auth_digest_is_stale (req) then
-					io.put_string ("Nonce was stale.%N")
+					debug("demo_server")
+						io.put_string ("Nonce was stale.%N")
+					end
 
 					values.force ("stale=true")
 				end
-	--				-- Domains
+
+					-- Domains
+					-- A list of URIs that define the protection space.
+					-- The client can use this list to determine the set of URIs for which the same authentication information may be sent:
+					-- any URI that has an URI in this list as a prefix may be assumed to be in the same protection space.
+					-- If this directive is omitted or its value is empty, the client should assume that the protection space consist
+					-- of all URIs on the responding server.
+					--
+					-- NOTE: Unfortunately, most major user agents ingore this directive.
 	--				-- TODO Test with cURL. Firefox and Chrom just ignore this.
 	--			values.force ("domain=%"/login /protected%"")
 
+					-- Create header.
 					-- TODO Line continuation for better readability.
 				page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
 			else
@@ -277,6 +294,7 @@ feature -- Internal: Authentication
 	auth_digest_stale_variable_name: STRING = "_auth.digest.stale"
 
 	is_authentication_checked (req: WSF_REQUEST): BOOLEAN
+			-- Is the request's authorization checked?
 		do
 			Result := req.http_authorization = Void or else (auth_username (req) /= Void or auth_error_message (req) /= Void)
 		end
@@ -287,25 +305,27 @@ feature -- Internal: Authentication
 			is_authentication_checked (req)
 		do
 			Result := auth_username (req) /= Void
+		ensure
+			result_correct: Result = auth_username (req) /= Void
 		end
 
 	process_authentication (req: WSF_REQUEST)
 			-- Get authentication information from the request `req'.
-			-- note: access information using `auth_* (req: WSF_REQUEST)' function.
+			-- NOTE: access information using `auth_* (req: WSF_REQUEST)' function.
 		local
 			auth: HTTP_AUTHORIZATION
 			l_authentication_info: STRING
 		do
-				-- Reset user data
+				-- Reset user data.
 			req.unset_execution_variable (auth_username_variable_name)
 			req.unset_execution_variable (auth_error_message_variable_name)
 			req.unset_execution_variable (auth_digest_authentication_info_variable_name)
 			req.unset_execution_variable (auth_digest_stale_variable_name)
 			req.unset_execution_variable (auth_type_variable_name)
 
-				-- Get new data if any
+				-- Get new data, if any.
 			if attached req.http_authorization as l_http_authorization then
-					-- Try to parse the request
+					-- Try to parse the request.
 				create auth.make (l_http_authorization)
 				if auth.is_bad_request then
 					debug("demo_server")
@@ -313,17 +333,19 @@ feature -- Internal: Authentication
 					end
 					req.set_execution_variable (auth_error_message_variable_name, "Invalid request!")
 				elseif attached auth.login as l_login then
-						-- Check whether we know the username and the corresponding password.
+						-- Check authentication.
 					if auth.is_basic then
+							-- Basic authentication.
 						req.set_execution_variable (auth_type_variable_name, "Basic")
-						if is_valid_credential (auth, req) then
+						if is_valid_authentication (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 						else
 							req.set_execution_variable (auth_error_message_variable_name, "Invalid basic credentials for user %"" + l_login + "%"!")
 						end
 					elseif auth.is_digest then
+							-- Digest authentication.
 						req.set_execution_variable (auth_type_variable_name, "Digest")
-						if is_valid_credential (auth, req) then
+						if is_valid_authentication (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 
 							if
@@ -332,6 +354,7 @@ feature -- Internal: Authentication
 								attached l_digest_data.nonce as l_nonce and then
 								user_manager.nonce_exists (l_nonce)
 							then
+									-- Set Authentication-Info.
 								l_authentication_info :=  auth.digest_authentication_info (user_manager, req.request_method)
 								req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
 							else
@@ -342,9 +365,8 @@ feature -- Internal: Authentication
 								io.put_string ("Authorized: True.%N")
 								io.put_string ("Computed Authentication-Info%N")
 							end
-
 						else
-							req.set_execution_variable (auth_error_message_variable_name, "Invalid demo credentials for user %"" + l_login + "%"!")
+							req.set_execution_variable (auth_error_message_variable_name, "Invalid digest authentication for user %"" + l_login + "%"!")
 
 							debug("demo_server")
 								io.put_string ("Authorized: False.%N")
@@ -413,8 +435,8 @@ feature -- Internal: Authentication
 feature -- Server parameters
 
 	server_qop: STRING
-		-- Qality of protection.
 		-- Optional digest directive, but made so only for backward compatibility with RFC 2069.
+		-- If present, it describes the quality of protection values supported by the server.
 
 	server_opaque: STRING
 		-- String of data, which should be returned by the client unchanged in the Authoriziation header
@@ -464,7 +486,7 @@ feature -- Helper
 	append_html_login (req: WSF_REQUEST; s: STRING)
 			-- Append login link to `s'.
 		do
-			s.append ("<li><a href=%""+ req.script_url ("/login") +"%">sign in (with Basic auth)</a></li>")
+			s.append ("<li><a href=%""+ req.script_url ("/login") +"?auth=basic%">sign in (with Basic auth)</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/login") +"?auth=digest%">sign in (with Digest auth)</a></li>")
 		end
 
@@ -474,7 +496,10 @@ feature -- Helper
 			l_logout_url: STRING
 		do
 			l_logout_url := req.absolute_script_url ("/login")
-			l_logout_url.replace_substring_all ("://", "://_@") -- Hack to clear http authorization, i.e connect with bad username "_".
+
+			 	-- Hack to clear http authorization, i.e connect with bad username "_".
+			 	-- TODO Maybe there is a cleaner solution than this.
+			l_logout_url.replace_substring_all ("://", "://_@")
 			s.append ("<li><a href=%""+ l_logout_url +"%">logout</a></li>")
 		end
 

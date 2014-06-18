@@ -332,8 +332,6 @@ feature -- Status report
 			--
 			-- Here we need the values which the server has sent in the WWW-Authenticate header.			--
 			-- URI may be changed by proxies. We take the one from the authorization-header.
-			--
-			-- TODO This method could be modified s.t. it does not take the cleartext password as an argument.
 		require
 			is_digest: is_digest
 			request_valid: not is_bad_request
@@ -354,69 +352,13 @@ feature -- Status report
 					attached l_digest.nonce as l_nonce
 				)
 			then
-					-- Check whether we know the nonce from the Authorization-header.
-					-- XXX The following could be optimized, for example move to other position, start at end etc.
-					-- XXX We could also make use of 'across' for better readability.
---				if not a_server_nonce_list.is_empty then
---					if a_server_nonce_list.last.is_case_insensitive_equal (l_nonce) then
---						l_found_nonce := a_server_nonce_list.last
---						l_nonce_expected := True
---					else
---						-- NOTE: This is our interpretation of "stale".
---						-- RFC 2617
---						across
---							a_server_nonce_list as ic
---						until
---							l_found_nonce /= Void
---						loop
---							l_found_nonce := ic.item
---							if l_found_nonce.is_case_insensitive_equal (l_nonce) then
---									-- Found
---							else
---								l_found_nonce := Void
---							end
---						end
---							-- QUESTION: if nonce is found in a_server_nonce_list
---							-- why is it not an expected nonce?						
---					end
---				else
---					io.putstring ("TODO...%N")
---				end
-
 				if a_user_manager.nonce_exists (l_nonce) and attached login as l_login and then attached a_user_manager.password (l_login) as l_pw then
-						-- Compute expected response
+						-- Compute expected response.
 					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
 					l_expected_response := digest_expected_response (ha1, ha2, l_nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
 
-					-- FIXME Also check whether nc is as expected.
-					-- If not, also check for staleness.
-
---					if l_nonce_expected then
---							-- The nonce is the one we expected.
---						Result := l_expected_response.same_string (l_response)
-
---						debug ("http_authorization")
---							if not Result then
---								io.put_string ("Expected response: " + l_expected_response + "%N")
---								io.put_string ("Actual response: " + l_response + "%N")
---							else
---								io.put_string ("Expected and actual response: " + l_expected_response + "%N")
---							end
---						end
---					else
---							-- The nonce is not the one we expected.
---							-- Maybe it is in the list of nonces from the client.
---							-- Then, the nonce could just be stale, and the user agent doesn't have to prompt for the credentials again.
---							-- The result is False anyway.
---						stale := l_expected_response.same_string (l_response)
---						debug ("http_authorization")
---							io.put_string ("Nonce is not the expected one. Stale: " + stale.out + "%N")
---						end
---					end
-
 						-- Check response.
---					if l_expected_response.same_string (l_response) and a_user_manager.nonce_count (l_nonce) + 1 = l_digest.nc_as_integer then
 					if l_expected_response.same_string (l_response) and attached l_digest.nc then
 							-- Check nonce-count.
 							-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
@@ -427,6 +369,8 @@ feature -- Status report
 
 								-- Check for staleness.
 							if a_user_manager.is_nonce_stale(l_nonce) then
+									-- Request has an invalid nonce, but a valid digest for that nonce.
+									-- This indicates that the client knows the correct credentials.
 								stale := true
 							else
 									-- Passed all checks.
@@ -444,7 +388,13 @@ feature -- Status report
 					end
 				else
 					debug ("http_authorization")
-						io.put_string ("We don't know this nonce:%N   " + l_nonce + ".%N")
+						if not a_user_manager.nonce_exists (l_nonce) then
+							io.put_string ("We don't know this nonce:%N   " + l_nonce + ".%N")
+						elseif not attached login then
+							io.put_string ("ERROR: login not attached.%N")
+						else
+							io.put_string ("Password not attached.%N")
+						end
 					end
 				end
 			else
@@ -488,8 +438,6 @@ feature -- Status report
 	is_bad_request: BOOLEAN
 			-- If a directive or its value is improper, or required directives are missing,
 			-- the proper response is 400 Bad Request.
-			--
-			-- TODO Make more/extensive use of this.
 
 	bad_request_message: detachable READABLE_STRING_8
 			-- Message associated with `is_bad_request'.
@@ -499,7 +447,6 @@ feature -- Status report
 
 feature -- Access: digest
 
-		-- TODO
 	digest_authentication_info (a_user_manager: USER_MANAGER; a_request_method: READABLE_STRING_8): STRING_8
 			-- Value for header "Authentication-Info" success, for the digest auth.
 			-- This header is sent along with the 200 OK response from a previous successful authentication.
@@ -540,6 +487,8 @@ feature -- Access: digest
 				end
 
 					-- cnonce
+					-- This opaque value provided by the client is used by both client and server to avoid chosen plaintext
+					-- attacks, to provide mutual authentication, and to provide some message integrity protection.
 				if attached l_digest.cnonce as l_cnonce then
 					values.force ("cnonce=%"" + l_cnonce + "%"")
 				end
@@ -561,7 +510,7 @@ feature -- Access: digest
 
 				values.force ("rspauth=%"" + rspauth + "%"")
 
-					-- Create final Result
+					-- Create final Result.
 				across
 					 values as ic
 				loop
@@ -699,14 +648,10 @@ feature {NONE} -- Implementation: Digest
 			a1.append_character (':')
 			a1.append (a_server_password)
 			Result := md5_hash (a1)
-
---			debug ("http_authorization")
---				io.put_string ("Computed HA1: " + Result + "%N")
---			end
 		end
 
 	digest_hash_of_method_and_uri (a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; for_auth_info: BOOLEAN): STRING_8
-			-- hash value of `a_server_method' , and `a_server_uri',
+			-- Hash value of `a_server_method' , and `a_server_uri',
 			-- also known as HA2 in the related wikipedia page.
 			-- `for_auth_info' MUST be set to True if we compute the hash for the Authentication-Info header.
 			--
@@ -727,14 +672,10 @@ feature {NONE} -- Implementation: Digest
 			end
 
 			Result := md5_hash (a2)
-
---			debug ("http_authorization")
---				io.put_string ("Computed HA2: " + Result + "%N")
---			end
 		end
 
 	digest_expected_response (ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; a_server_nonce: READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_8; a_cnonce: detachable READABLE_STRING_8) : STRING_8
-			-- UNQUOTED expected response.
+			-- Compute expected response.
 			-- also known as response in the related wikipedia page.
 			--
 			-- If the qop directive's value is "auth" or "auth-int", then compute the response as follows:
@@ -751,25 +692,15 @@ feature {NONE} -- Implementation: Digest
 				if a_nc /= Void and a_cnonce /= Void then
 						-- Standard (for digest) computation of response.
 					unhashed_response := ha1 + ":" + a_server_nonce + ":" + a_nc + ":" + a_cnonce + ":" + a_server_qop + ":" + ha2
---					debug ("http_authorization")
---						io.put_string ("Expected unhashed response: " + unhashed_response)
---						io.new_line
---					end
 
 					Result := md5_hash (unhashed_response)
---					debug ("http_authorization")
---						io.put_string ("Expected unquoted response: " + Result)
---						io.new_line
---					end
 				else
-						-- TODO Throw an exception. This should be excluded by invariant.
-					debug ("http_authorization")
-						io.put_string ("ERROR: This should not happen!%N")
-					end
+						-- This should be excluded by the invariant.
+					check not_allowed: False end
 				end
 			else
-					-- qop directive is not present.
-					-- Use construction for backwards compatibility with RFC 2069
+					-- qop directive not present.
+					-- Use special construction for backwards compatibility with RFC 2069.
 				debug ("http_authorization")
 					io.put_string ("RFC 2069 mode.")
 					io.new_line
