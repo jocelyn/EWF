@@ -26,12 +26,16 @@ feature {NONE} -- data
 
 	nonce_count_table: STRING_TABLE [INTEGER]
 		-- For nonce (key), stores current, last seen nonce-count (value).
+		-- A nonce is a server-specified data string which should be uniquely generated each time a 401 response is made.
+		-- The nonce-count is the hexadecimal count of the number of requests (including the current one) that the client
+		-- has sent with the nonce value in this request.
+		-- It allows the server to detect request replays.
 
 	password_table: STRING_TABLE [STRING]
 		-- For username (key), stores current password (value).
 
 	time_to_live: INTEGER
-		-- Time to live for a nonce, in seconds
+		-- Time to live for a nonce, in seconds.
 
 feature {NONE} -- nonce creation
 

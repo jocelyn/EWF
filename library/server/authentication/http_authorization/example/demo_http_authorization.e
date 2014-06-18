@@ -36,6 +36,12 @@ feature {NONE} -- Initialization
 			user_manager.put_credentials ("password", "user")
 			user_manager.put_credentials ("Circle Of Life", "Mufasa")
 
+				-- Set parameters.
+			server_qop := "auth"
+			server_opaque := "5ccc069c403ebaf9f0171e9517f40e41"
+			server_algorithm := "MD5"
+			server_realm := "Enter password for DEMO"
+
 			make_and_launch
 		end
 
@@ -406,12 +412,19 @@ feature -- Internal: Authentication
 
 feature -- Server parameters
 
-		-- TODO Also support auth-int.	
-		-- TODO This should be a once, and also, the opaque value should be random.
-	server_qop: STRING = "auth"
-	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
-	server_algorithm: STRING = "MD5"
-	server_realm: STRING = "Enter password for DEMO"
+	server_qop: STRING
+		-- Qality of protection.
+		-- Optional digest directive, but made so only for backward compatibility with RFC 2069.
+
+	server_opaque: STRING
+		-- String of data, which should be returned by the client unchanged in the Authoriziation header
+		-- of subsequent requests with URIs in the same protection space.
+
+	server_algorithm: STRING
+		-- String indicating algorithms used to produce the digest and a checksum.
+
+	server_realm: STRING
+		-- String to be displayed to users so they know which username and password to use.
 
 feature -- Users
 

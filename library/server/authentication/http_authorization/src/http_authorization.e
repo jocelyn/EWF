@@ -518,7 +518,7 @@ feature -- Access: digest
 				-- to pipeline multiple requests to the same server.
 				-- Since pipelining is expected to be a fundamental technology for latency avoidance,
 				-- the performance penalty may be large.
-				
+
 			create Result.make_empty
 
 			if
