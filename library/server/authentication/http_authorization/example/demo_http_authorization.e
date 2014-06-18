@@ -27,12 +27,10 @@ create
 feature {NONE} -- Initialization
 
 	my_make
-		local
-			nonce: STRING
-			stale: BOOLEAN
 		do
 			create user_manager.make(5)
 
+				-- Insert demo credentials.
 			user_manager.put_credentials ("eiffel", "world")
 			user_manager.put_credentials ("foo", "bar")
 			user_manager.put_credentials ("password", "user")
@@ -50,73 +48,15 @@ feature {NONE} -- Initialization
 
 feature -- Credentials
 
-	is_valid_basic_credential (a_auth: HTTP_AUTHORIZATION): BOOLEAN
-			-- Is `a_login:a_password' a valid credential?
-		require
-			a_auth.is_basic
+	is_valid_credential(a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
+			-- Is `a_auth' authorized basic or digest authentication?
 		do
-			if
-				attached a_auth.password as l_auth_password and
-				attached a_auth.login as l_login
-			then
-				if
-					user_manager.user_exists (l_login) and then
-					attached user_manager.password (l_login) as l_passwd
-				then
-					Result := l_auth_password.is_case_insensitive_equal (l_passwd)
-				else
-					debug("demo_server")
-					io.putstring ("Unauthorized basic, problem asdfasdf%N")
-					end
-				end
-
+			if a_auth.is_basic then
+				Result := a_auth.is_authorized_basic (user_manager)
 			else
-				debug("demo_server")
-					io.putstring ("Unauthorized basic%N")
-				end
+				check type: a_auth.is_digest end
+				Result := a_auth.is_authorized_digest (user_manager, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
 			end
-		ensure
-			Result implies (attached a_auth.login as l_login and then user_manager.user_exists (l_login))
-		end
-
---	is_valid_digest_credential (a_login: READABLE_STRING_8; a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
---			-- Is `a_login:a_password' a valid credential?
---		require
---			a_auth.is_digest
---		local
---			l_nc: INTEGER
---		do
---			if
---				attached user_manager.password (a_login) as l_passwd and then
---				attached user_manager.get_nonce (a_login) as l_nonce
---			then
---				l_nc := l_user_manager.get_nc (a_login)
---				Result := a_auth.is_authorized_digest (server_realm, l_nonce, l_nc, req.request_method, req.request_uri, server_algorithm, server_qop)
---			end
---		ensure
---			Result implies is_known_login (a_login)
---		end
-
-	is_valid_digest_credential (a_auth: HTTP_AUTHORIZATION; req: WSF_REQUEST): BOOLEAN
-			-- Is `a_login:a_password' a valid credential?
-		require
-			a_auth.is_digest
-		do
-			Result := a_auth.is_authorized_digest (user_manager, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
-
-			debug("demo_server")
-				io.putstring ("...Digest authorized: " + Result.out + "%N")
-			end
-
-		ensure
-			-- TODO Move this to http_authorization class
-			Result implies
-			(
-				attached a_auth.login as l_login and then
-				attached user_manager.password (l_login) as l_pw and then
-				user_manager.user_exists (l_login) and then
-				attached user_manager.password (l_login) as l_pw_two and then l_pw_two.same_string (l_pw)
-			)
 		end
 
 feature -- Basic operations
@@ -125,10 +65,9 @@ feature -- Basic operations
 			-- <Precursor>
 		local
 			l_authenticated_username: like auth_username
-			debug_attached: BOOLEAN
 		do
-				-- Get authenticated information if any
-				-- note: to access result, one could use `auth_username (req)'
+				-- Get authenticated information, if any.
+				-- NOTE: To access result, one could use `auth_username (req)'
 			process_authentication (req)
 			l_authenticated_username := auth_username (req)
 
@@ -139,19 +78,8 @@ feature -- Basic operations
 				else
 --					if not attached req.http_authorization or (attached {WSF_STRING} req.query_parameter ("auth") as s_auth and then s_auth.is_case_insensitive_equal ("digest")) then
 					if not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest")) then
-						debug("demo_server")
-							io.put_string ("Reply with digest%N")
-						end
 						handle_unauthorized ("Please provide credential ...", "digest", req, res)
 					else
-						debug("demo_server")
-							io.put_string ("Reply with basic%N")
-							if attached req.execution_variable (auth_type_variable_name) as s_type then
-								io.put_string ("req.auth_param: " + s_type.out + "%N")
-							else
-								io.put_string ("req.auth_param: not attached%N")
-							end
-						end
 						handle_unauthorized ("Please provide credential ...", "basic", req, res)
 					end
 				end
@@ -181,8 +109,9 @@ feature -- Basic operations
 			s: STRING
 			page: WSF_HTML_PAGE_RESPONSE
 		do
-			io.put_string ("DEMO_HTTP_AUTHORIZATION.handle_authenticated")
-			io.put_new_line
+			debug("demo_server")
+				io.put_string ("Handle authenticated...")
+			end
 
 			create s.make_empty
 
@@ -215,8 +144,10 @@ feature -- Basic operations
 		do
 			create page.make
 
-			io.put_string ("DEMO_HTTP_AUTHORIZATION.handle_not_authenticated")
-			io.put_new_line
+
+			debug("demo_server")
+				io.put_string ("Handle restricted...")
+			end
 
 			create s.make_empty
 			append_html_header (a_authenticated_username, req, s)
@@ -265,6 +196,7 @@ feature -- Basic operations
 			create page.make
 			if attached auth_digest_authentication_info (req) as l_info then
 					-- Should we send this if no user is authenticated?
+					-- TODO No.
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			end
 			page.set_body (s)
@@ -294,11 +226,9 @@ feature -- Basic operations
 			if a_auth_type.is_case_insensitive_equal_general ("digest") then
 					-- Digest
 
-					-- User gets a fresh nonce and nonce-count.
-					-- TODO How can I know the user?
-					-- We send a nonce to the user, but don't know his name yet.
-					-- Later, he will send us back the nonce
-					-- NOTE We don't have to know to whom we send the nonce.
+					-- Create fresh nonce with nonce-count of zero.
+					-- We send this nonce to the user, but we don't know his name yet.
+					-- Later, he will send us back the nonce.
 				new_nonce := user_manager.new_nonce
 
 					-- Create response.
@@ -306,7 +236,7 @@ feature -- Basic operations
 				values.force ("qop=%"" + server_qop + "%"")
 				values.force ("nonce=%"" + new_nonce + "%"")
 				values.force ("opaque=%"" + server_opaque + "%"")
---				values.force ("algorithm=" + server_algorithm)
+				values.force ("algorithm=" + server_algorithm)
 
 					-- Stale
 				if auth_digest_is_stale (req) then
@@ -318,23 +248,12 @@ feature -- Basic operations
 	--				-- TODO Test with cURL. Firefox and Chrom just ignore this.
 	--			values.force ("domain=%"/login /protected%"")
 
-
-					-- Coma + CRLF + space : ",%/13/%/10/%/13/ "
-					-- FIXME: Line continuation for better readability.
+					-- TODO Line continuation for better readability.
 				page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
-
-	--				-- ETag
-	--			page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_etag, "%"686897696a7c876b7e%"")
-
 			else
 					-- Basic
 				values.force ("Basic realm=%"" + server_realm +"%"")
---				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_www_authenticate,
---						"Basic realm=%"Please enter a valid username and password (demo [" + html_encoder.encoded_string (demo_credential) + "])%""
---						--| warning: for this example: a valid credential is provided in the message, of course that for real application.
---					)
 				page.header.put_header_key_values ({HTTP_HEADER_NAMES}.header_www_authenticate, values, ", ")
-
 			end
 
 			page.set_body (s)
@@ -388,14 +307,14 @@ feature -- Internal: Authentication
 						-- Check whether we know the username and the corresponding password.
 					if auth.is_basic then
 						req.set_execution_variable (auth_type_variable_name, "Basic")
-						if is_valid_basic_credential (auth) then
+						if is_valid_credential (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 						else
 							req.set_execution_variable (auth_error_message_variable_name, "Invalid credentials for user %"" + l_login + "%"!")
 						end
 					elseif auth.is_digest then
 						req.set_execution_variable (auth_type_variable_name, "Digest")
-						if is_valid_digest_credential (auth, req) then
+						if is_valid_credential (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
 							io.put_string ("Authorized: True.%N")
 						else
@@ -472,28 +391,19 @@ feature -- Internal: Authentication
 			end
 		end
 
-feature -- Parameters
+feature -- Server parameters
 
 		-- TODO Also support auth-int.	
-		-- TODO If we suggest multiple alternatives, use an arrayed_list istead.
 		-- TODO This should be a once, and also, the opaque value should be random.
 	server_qop: STRING = "auth"
 	server_opaque: STRING = "5ccc069c403ebaf9f0171e9517f40e41"
 	server_algorithm: STRING = "MD5"
 	server_realm: STRING = "Enter password for DEMO"
 
-		-- TODO This could be a list of Tuples, s.t. each nonce is assigned the latest nc from the client.
---	server_nonce_list: ARRAYED_LIST [STRING]
-
-
-
-feature -- Nonce
+feature -- Users
 
 	user_manager: USER_MANAGER
-
-
-
-
+	
 feature -- Helper
 
 	append_html_header (a_username: detachable READABLE_STRING_8; req: WSF_REQUEST; s: STRING)
@@ -550,8 +460,6 @@ feature -- Helper
 			s.append ("<hr/>")
 			if attached req.http_authorization as l_http_authorization then
 				s.append ("Has <em>Authorization:</em> header: ")
-
-				io.put_string ("DEMO_HTTP_AUTHORIZATION.append_html_footer()%N")
 
 				create hauth.make (l_http_authorization)
 				if attached hauth.login as l_login then

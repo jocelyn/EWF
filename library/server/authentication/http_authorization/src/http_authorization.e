@@ -312,10 +312,23 @@ feature -- Status report
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
+	is_authorized_basic (a_user_manager: USER_MANAGER): BOOLEAN
+			-- Is basic authentication authorized?
+		require
+			is_basic: is_basic
+			request_valid: not is_bad_request
+		do
+			if attached login as l_login and attached password as l_password then
+				Result := attached a_user_manager.password (l_login) as s_password and then l_password.same_string (s_password)
+			end
+		ensure
+			Result implies (attached login as l_login and then a_user_manager.user_exists (l_login))
+		end
+
 	is_authorized_digest (a_user_manager: USER_MANAGER;
 				a_server_realm: READABLE_STRING_8; a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8;
 				a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8): BOOLEAN
-			-- Validates digest authentication.
+			-- Is digest authentication authorized?
 			--
 			-- Here we need the values which the server has sent in the WWW-Authenticate header.			--
 			-- URI may be changed by proxies. We take the one from the authorization-header.
@@ -431,6 +444,12 @@ feature -- Status report
 					io.put_string ("Could not compute expected response since something was not attached.")
 --				end
 			end
+		ensure
+			Result implies
+			(
+				attached login as l_login and then
+				a_user_manager.user_exists (l_login)
+			)
 		end
 
 	debug_output: STRING_32
@@ -472,6 +491,7 @@ feature -- Status report
 
 feature -- Access: digest
 
+		-- TODO 
 	digest_authentication_info (a_username, a_password: READABLE_STRING_8;
 			a_request_method: READABLE_STRING_8; a_request_uri: READABLE_STRING_8;
 			a_algorithm: READABLE_STRING_8; a_qop: READABLE_STRING_8; a_nonce: READABLE_STRING_8
@@ -765,6 +785,7 @@ feature -- Helpers: hash, md5
 invariant
 	type_valid: is_digest or is_basic or is_bad_request
 	is_valid_digest_or_bad_request: (is_digest and not is_bad_request) implies digest_data /= Void
+	is_valid_basic_or_bad_request: (is_basic and not is_bad_request) implies (login /= Void and password /= Void)
 	login_attached: is_bad_request or attached login
 
 end

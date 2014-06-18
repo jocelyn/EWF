@@ -22,9 +22,7 @@ feature -- initialization
 			ttl_set: time_to_live = a_ttl
 		end
 
-feature -- data
-
-		-- TODO Export to NONE
+feature {NONE} -- data
 
 	nonce_count_table: STRING_TABLE [INTEGER]
 		-- For nonce (key), stores current, last seen nonce-count (value).
