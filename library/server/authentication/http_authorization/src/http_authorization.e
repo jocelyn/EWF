@@ -325,7 +325,7 @@ feature -- Status report
 			Result implies (attached login as l_login and then a_user_manager.user_exists (l_login))
 		end
 
-	is_authorized_digest (a_user_manager: USER_MANAGER;
+	is_authorized_digest (a_nonce_manager: NONCE_MANAGER; a_user_manager: USER_MANAGER;
 				a_server_realm: READABLE_STRING_8; a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8;
 				a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8): BOOLEAN
 			-- Is digest authentication authorized?
@@ -352,7 +352,7 @@ feature -- Status report
 					attached l_digest.nonce as l_nonce
 				)
 			then
-				if a_user_manager.nonce_exists (l_nonce) and attached login as l_login and then attached a_user_manager.password (l_login) as l_pw then
+				if a_nonce_manager.nonce_exists (l_nonce) and attached login as l_login and then attached a_user_manager.password (l_login) as l_pw then
 						-- Compute expected response.
 					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
@@ -364,13 +364,13 @@ feature -- Status report
 							-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
 							-- This way we can detect replays.
 
-							-- In the following condition
-						if l_digest.nc_as_integer > a_user_manager.nonce_count (l_nonce) then
+						if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_nonce) then
+						
 								-- Set nonce-count to current value.
-							a_user_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
+							a_nonce_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
 
 								-- Check for staleness.
-							if a_user_manager.is_nonce_stale(l_nonce) then
+							if a_nonce_manager.is_nonce_stale (l_nonce) then
 									-- Request has an invalid nonce, but a valid digest for that nonce.
 									-- This indicates that the client knows the correct credentials.
 								stale := true
@@ -384,15 +384,15 @@ feature -- Status report
 							if not l_expected_response.same_string (l_response) then
 								io.putstring ("Wrong response%N")
 							else
-								io.putstring ("Expected nc: " + (a_user_manager.nonce_count (l_nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
+								io.putstring ("Expected nc: " + (a_nonce_manager.nonce_count (l_nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
 							end
 						end
 					end
 				else
 					debug ("http_authorization")
-						if not a_user_manager.nonce_exists (l_nonce) then
+						if not a_nonce_manager.nonce_exists (l_nonce) then
 							io.put_string ("We don't know this nonce:%N   " + l_nonce + ".%N")
-						elseif not attached login then
+						elseif login = Void then
 							io.put_string ("ERROR: login not attached.%N")
 						else
 							io.put_string ("Password not attached.%N")
@@ -406,10 +406,10 @@ feature -- Status report
 			end
 		ensure
 			result_lightweight_check: Result implies
-			(
-				attached login as l_login and then
-				a_user_manager.user_exists (l_login)
-			)
+					(
+						attached login as l_login and then
+						a_user_manager.user_exists (l_login)
+					)
 		end
 
 	debug_output: STRING_32
