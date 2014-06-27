@@ -1,8 +1,5 @@
 note
 	description: "Handles users, for digest and basic authentication"
-	author: "Damian"
-	date: "June 6, 2014"
-	revision: "$Revision$"
 
 class
 	MEMORY_USER_MANAGER
@@ -35,7 +32,7 @@ feature -- element change
 		do
 			set_password (a_user, a_password)
 		ensure
-			user_known: user_exists (a_user)
+			set: attached password (a_user) as l_pw and then a_password.same_string_general (a_password)
 		end
 
 	set_password (a_user: STRING; a_password: STRING)
@@ -43,8 +40,7 @@ feature -- element change
 		do
 			password_table.force (a_password, a_user)
 		ensure
-			user_exists: user_exists (a_user)
-			password_set: attached password (a_user)as l_pw and then l_pw.same_string (a_password)
+			password_set: attached password (a_user) as l_pw and then l_pw.same_string (a_password)
 		end
 
 feature -- status report
@@ -58,12 +54,11 @@ feature -- status report
 feature -- access
 
 	password (a_user: STRING): detachable STRING
-			-- Returns password associated with `a_user', or Void, if `a_user' is unknown.
+			-- Password associated with `a_user', or Void, if `a_user' is unknown.
 		do
 			Result := password_table.item (a_user)
 		ensure then
-			attachment_correct: (attached Result implies attached password_table.item (a_user)) and (not attached Result implies not attached password_table.item (a_user))
-			attachment_correct: (Result /= Void implies password_table.item (a_user) /= Void) and (Result = Void implies password_table.item (a_user) = Void)
+			attachment_correct: (Result = Void) /= user_exists (a_user)
 		end
 
 end
