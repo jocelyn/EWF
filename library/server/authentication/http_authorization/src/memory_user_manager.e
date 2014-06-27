@@ -57,8 +57,6 @@ feature -- access
 			-- Password associated with `a_user', or Void, if `a_user' is unknown.
 		do
 			Result := password_table.item (a_user)
-		ensure then
-			attachment_correct: (Result = Void) /= user_exists (a_user)
 		end
 
 end
