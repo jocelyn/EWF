@@ -62,8 +62,12 @@ feature
 				-- Without qop.
 				check_response_digest (authentication_method, "world" , "Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAwODo0ODozMiBHTVQ6Y2UyYWNjODIxYWVlNTA1OWIwMGIxOWIzNDc3MDk3NDk=%", uri=%"/login%", algorithm=MD5, response=%"060135c5e618128e2759061defe8c8dc%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", method)
 
+				-- Wrong qop
+
 				-- Without algorithm
 				check_response_digest (authentication_method, "world" , "Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMToyNzo0OCBHTVQ6OTdhYTBmYTEzOWNlODg1OTJiM2M2ZTUwYTEwODc3ZmI=%", uri=%"/login%", qop=auth, response=%"aa5b9592e3b2aa1da186caac3b8c3d82%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%", nc=00000001, cnonce=%"220d8c34daa301b9%"", method)
+
+				-- Wrong algorithm
 
 				-- Without qop and algorithm
 				check_response_digest (authentication_method, "world" , "Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMTozMzoyNiBHTVQ6ZDFiNjQxYjUyNmYzMTMzNjhiMzJhZDFjMjkyMzgxZmQ=%", uri=%"/login%", response=%"631b74f544c67c8cdf8a37dc139cc320%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", method)
@@ -73,6 +77,10 @@ feature
 
 				-- Wrong Basic
 				not ((create {BASE64}).decoded_string ("Arbitry")).same_string("eiffel:world")
+
+				-- Unknown nonce
+
+				-- Stale nonce
 			end
 
 		end
