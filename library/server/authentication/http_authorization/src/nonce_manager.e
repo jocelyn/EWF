@@ -1,8 +1,5 @@
 note
 	description: "Handles nonces related data."
-	author: "Damian"
-	date: "June 6, 2014"
-	revision: "$Revision$"
 
 deferred class
 	NONCE_MANAGER
@@ -12,6 +9,8 @@ feature {NONE} -- data
 	time_to_live: INTEGER
 			-- Time to live for a nonce, in seconds.
 		deferred
+		ensure
+			Result >= 0
 		end
 
 feature -- Access
@@ -21,6 +20,7 @@ feature -- Access
 		deferred
 		ensure
 			nc_non_negative: Result >= 0
+			unknown: not nonce_exists (a_nonce) implies Result = 0
 		end
 
 feature -- Change
@@ -31,6 +31,8 @@ feature -- Change
 			nonce_exists (a_nonce)
 			nc_smaller: nonce_count (a_nonce) < a_nonce_count
 		deferred
+		ensure
+			set: nonce_count (a_nonce) = a_nonce_count
 		end
 
 feature -- status report

@@ -1,8 +1,5 @@
 note
 	description: "Handles nonce, for digest and basic authentication"
-	author: "Damian"
-	date: "June 6, 2014"
-	revision: "$Revision$"
 
 class
 	MEMORY_NONCE_MANAGER
@@ -17,6 +14,8 @@ feature {NONE} -- initialization
 
 	make (a_ttl: INTEGER)
 			-- Set `time_to_live' for nonces to `a_ttl'.
+		require
+			is_non_negative: a_ttl >= 0
 		do
 			time_to_live := a_ttl
 			create nonce_count_table.make (0)
@@ -66,7 +65,7 @@ feature {NONE} -- nonce creation
 
 			Result := base64_encoder.encoded_string (Result)
 
-			debug("user-manager")
+			debug("memory_nonce_manager")
 				io.put_string ("Nonce before encoding: " + Result + "%N")
 			end
 		end
@@ -74,7 +73,7 @@ feature {NONE} -- nonce creation
 feature -- element change
 
 	new_nonce: STRING
-			-- Creates a fresh nonce and stores it into `nonce_count_table', with a nonce-count value of 1.
+			-- Creates a fresh nonce and stores it into `nonce_count_table', with a nonce-count value of 0.
 			-- Returns the nonce.
 		local
 			l_nonce: STRING
@@ -88,33 +87,33 @@ feature -- element change
 			not_empty: not Result.is_empty
 		end
 
-	increment_nonce_count (a_nonce: STRING)
-			-- Increment nonce-count associated with `user'.
-		require
-			nonce_known: nonce_exists (a_nonce)
-		local
-			l_nc: INTEGER
-		do
-			l_nc := nonce_count_table.item (a_nonce)
+--	increment_nonce_count (a_nonce: STRING)
+--			-- Increment nonce-count associated with `user'.
+--		require
+--			nonce_known: nonce_exists (a_nonce)
+--		local
+--			l_nc: INTEGER
+--		do
+--			l_nc := nonce_count_table.item (a_nonce)
 
 
-			debug ("user-manager")
-				io.putstring ("Old nonce-count: " + l_nc.out + "%N")
-			end
+--			debug ("user-manager")
+--				io.putstring ("Old nonce-count: " + l_nc.out + "%N")
+--			end
 
 
-			l_nc := l_nc + 1
+--			l_nc := l_nc + 1
 
 
-			debug ("user-manager")
-				io.putstring ("New nonce-count: " + l_nc.out + "%N")
-			end
+--			debug ("user-manager")
+--				io.putstring ("New nonce-count: " + l_nc.out + "%N")
+--			end
 
-			nonce_count_table.force (l_nc, a_nonce)
-		ensure
-				-- FIXME
+--			nonce_count_table.force (l_nc, a_nonce)
+--		ensure
+--				-- FIXME
 --			incremented: (old nonce_count_table).item (a_nonce) = nonce_count_table.item (a_nonce) + 1
-		end
+--		end
 
 feature -- status report
 
@@ -127,7 +126,7 @@ feature -- status report
 		end
 
 	is_nonce_stale (a_nonce: STRING): BOOLEAN
-			-- Returns true, if nonce has expired, i.e., is older than `time_to_live'.
+			-- True, if nonce has expired, i.e., is older than `time_to_live'.
 		local
 			l_http_date: HTTP_DATE
 			l_duration: DATE_TIME_DURATION
@@ -141,7 +140,7 @@ feature -- status report
 
 			Result := age_in_seconds > time_to_live
 
-			debug ("user-manager")
+			debug ("memory_nonce_manager")
 				io.putstring ("Age of nonce in seconds: " + age_in_seconds.out + "%N")
 				io.putstring ("Nonce stale: " + Result.out + "%N")
 			end
@@ -150,7 +149,7 @@ feature -- status report
 feature -- access
 
 	nonce_count (a_nonce: STRING): INTEGER
-			-- Returns nonce-count associated with `a_nonce', or zero, if `a_nonce' is unknown.
+			-- Nonce-count associated with `a_nonce', or zero, if `a_nonce' is unknown.
 		do
 			Result := nonce_count_table.item (a_nonce)
 		end
@@ -162,7 +161,7 @@ feature -- access
 		end
 
 	time_from_nonce (a_nonce: STRING): HTTP_DATE
-			-- Returns time encoded in `a_nonce'.
+			-- Time encoded in `a_nonce'.
 		require
 			nonce_known: nonce_exists(a_nonce)
 		local
@@ -173,11 +172,15 @@ feature -- access
 		do
 			create l_base_decoder
 
+				-- Read the time from the nonce.
+
 			l_decoded_nonce := l_base_decoder.decoded_string (a_nonce)
 
 			l_index := l_decoded_nonce.last_index_of (':', l_decoded_nonce.count)
 
 			l_time_string := l_decoded_nonce.substring (1, l_index - 1)
+
+				-- Create result from this time.
 
 			create Result.make_from_string (l_time_string)
 
@@ -210,7 +213,7 @@ feature -- private key
 
 			Result := random_int.item
 
-			debug("user-manager")
+			debug("memory_nonce_manager")
 				io.put_string ("Private key: " + private_key.out + "%N")
 			end
 		end
