@@ -25,7 +25,8 @@ feature {NONE} -- Initialization
 
 	my_make
 		do
-			create user_manager.make(10)
+			create user_manager.make
+			create nonce_manager.make (10)
 
 				-- Insert demo credentials.
 			user_manager.put_credentials ("eiffel", "world")
@@ -58,7 +59,7 @@ feature -- Credentials
 				Result := a_auth.is_authorized_basic (user_manager)
 			else
 				check type: a_auth.is_digest end
-				Result := a_auth.is_authorized_digest (user_manager, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
+				Result := a_auth.is_authorized_digest (nonce_manager, user_manager, server_realm, req.request_method, req.request_uri, server_algorithm, server_qop)
 			end
 		end
 
@@ -240,7 +241,7 @@ feature -- Basic operations
 					-- Create fresh nonce with nonce-count of zero.
 					-- We send this nonce to the user, but we don't know his name yet.
 					-- Later, he will send us back the nonce.
-				new_nonce := user_manager.new_nonce
+				new_nonce := nonce_manager.new_nonce
 
 					-- Create response.
 				values.force ("Digest realm=%"" + server_realm +"%"")
@@ -306,7 +307,7 @@ feature -- Internal: Authentication
 		do
 			Result := auth_username (req) /= Void
 		ensure
-			result_correct: Result = auth_username (req) /= Void
+			result_correct: Result = (auth_username (req) /= Void)
 		end
 
 	process_authentication (req: WSF_REQUEST)
@@ -352,7 +353,7 @@ feature -- Internal: Authentication
 								attached user_manager.password (l_login) as l_pwd and then
 								attached auth.digest_data as l_digest_data and then
 								attached l_digest_data.nonce as l_nonce and then
-								user_manager.nonce_exists (l_nonce)
+								nonce_manager.nonce_exists (l_nonce)
 							then
 									-- Set Authentication-Info.
 								l_authentication_info :=  auth.digest_authentication_info (user_manager, req.request_method)
@@ -450,7 +451,9 @@ feature -- Server parameters
 
 feature -- Users
 
-	user_manager: USER_MANAGER
+	nonce_manager: MEMORY_NONCE_MANAGER
+
+	user_manager: MEMORY_USER_MANAGER
 
 feature -- Helper
 
