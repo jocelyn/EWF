@@ -363,6 +363,8 @@ feature -- Status report
 							-- Check nonce-count.
 							-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
 							-- This way we can detect replays.
+
+							-- In the following condition
 						if l_digest.nc_as_integer > a_user_manager.nonce_count (l_nonce) then
 								-- Set nonce-count to current value.
 							a_user_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
