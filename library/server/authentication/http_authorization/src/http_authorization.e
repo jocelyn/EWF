@@ -365,7 +365,7 @@ feature -- Status report
 							-- This way we can detect replays.
 
 						if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_nonce) then
-						
+
 								-- Set nonce-count to current value.
 							a_nonce_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
 
@@ -693,6 +693,9 @@ feature {NONE} -- Implementation: Digest
 			if a_server_qop /= Void then
 				if a_nc /= Void and a_cnonce /= Void then
 						-- Standard (for digest) computation of response.
+
+						-- TODO Every replace string "+" by append function.
+
 					unhashed_response := ha1 + ":" + a_server_nonce + ":" + a_nc + ":" + a_cnonce + ":" + a_server_qop + ":" + ha2
 
 					Result := md5_hash (unhashed_response)
@@ -704,8 +707,7 @@ feature {NONE} -- Implementation: Digest
 					-- qop directive not present.
 					-- Use special construction for backwards compatibility with RFC 2069.
 				debug ("http_authorization")
-					io.put_string ("RFC 2069 mode.")
-					io.new_line
+					io.put_string ("RFC 2069 mode.%N")
 				end
 				unhashed_response := ha1 + ":" + a_server_nonce + ":" + ha2
 				Result := md5_hash (unhashed_response)
@@ -713,6 +715,9 @@ feature {NONE} -- Implementation: Digest
 		end
 
 feature -- Helpers: hash, md5		
+
+		-- TODO Here, we can add other hash functions, as, for example, SHA-256.
+		-- The newer RFCs suggest (or even require) this anyway.
 
 	md5_hash (s: READABLE_STRING_8): STRING_8
 		local

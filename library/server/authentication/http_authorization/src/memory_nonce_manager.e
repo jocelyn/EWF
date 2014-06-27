@@ -126,7 +126,7 @@ feature -- status report
 		end
 
 	is_nonce_stale (a_nonce: STRING): BOOLEAN
-			-- True, if nonce has expired, i.e., is older than `time_to_live'.
+			-- True, if nonce exists and has expired, i.e., is older than `time_to_live'.
 		local
 			l_http_date: HTTP_DATE
 			l_duration: DATE_TIME_DURATION
