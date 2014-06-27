@@ -474,10 +474,19 @@ feature -- Helper
 	append_html_menu (a_username: detachable READABLE_STRING_8; req: WSF_REQUEST; s: STRING)
 			-- Append menu to `s'.
 			-- when an user is authenticated, `a_username' is attached.
+
+		local
+			l_home_url: STRING
+			l_public_url: STRING
+			l_protectede_url: STRING
+			l_account_url: STRING
 		do
+			io.putstring ("Appending html menu. Absolute url: " + req.absolute_script_url ("") + ", url: " + req.script_url ("") + "%N")
+
 			if a_username /= Void then
 				s.append ("<li><a href=%""+ req.absolute_script_url ("") +"%">Your account</a> (displayed only is user is authenticated!)</li>")
 			end
+
 			s.append ("<li><a href=%""+ req.absolute_script_url ("") +"%">home</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/public/area") +"%">public area</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/protected/area") +"%">protected area</a></li>")
@@ -486,6 +495,8 @@ feature -- Helper
 	append_html_login (req: WSF_REQUEST; s: STRING)
 			-- Append login link to `s'.
 		do
+			io.putstring ("Appending html login. Absolute url: " + req.absolute_script_url ("") + ", url: " + req.script_url ("/login") + "%N")
+
 			s.append ("<li><a href=%""+ req.script_url ("/login") +"?auth=basic%">sign in (with Basic auth)</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/login") +"?auth=digest%">sign in (with Digest auth)</a></li>")
 		end
@@ -501,6 +512,8 @@ feature -- Helper
 			 	-- TODO Maybe there is a cleaner solution than this.
 			l_logout_url.replace_substring_all ("://", "://_@")
 			s.append ("<li><a href=%""+ l_logout_url +"%">logout</a></li>")
+
+			io.putstring ("Appending html logout. Absolute url: " + l_logout_url + "%N")
 		end
 
 	append_html_footer (req: WSF_REQUEST; s: STRING)
