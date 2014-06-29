@@ -359,20 +359,42 @@ feature -- Status report
 					l_expected_response := digest_expected_response (ha1, ha2, l_nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
 
 						-- Check response.
-					if l_expected_response.same_string (l_response) and attached l_digest.nc then
-							-- Check nonce-count.
-							-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
-							-- This way we can detect replays.
+					if l_expected_response.same_string (l_response) then
+						if l_digest.nc /= Void then
+								-- Check nonce-count.
+								-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
+								-- This way we can detect replays.
 
-						if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_nonce) then
+							if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_nonce) then
 
-								-- Set nonce-count to current value.
-							a_nonce_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
+									-- Set nonce-count to current value.
+								a_nonce_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
+
+									-- Check for staleness.
+								if a_nonce_manager.is_nonce_stale (l_nonce) then
+										-- Request has an invalid nonce, but a valid digest for that nonce.
+										-- This indicates that the client knows the correct credentials.
+										-- Hence, everything is fine, except that the nonce is stale.
+									stale := true
+								else
+										-- Passed all checks.
+									Result := true
+								end
+							end
+						else
+							debug ("http_authorization")
+								io.putstring ("nonce-count not specified%N")
+							end
+							
+								-- Nonce-count MUST NOT be speified if the server did not send a qop directive in the
+								-- WWW-Authenticate header field.
+							check qop_void: a_server_qop = Void end
 
 								-- Check for staleness.
 							if a_nonce_manager.is_nonce_stale (l_nonce) then
 									-- Request has an invalid nonce, but a valid digest for that nonce.
 									-- This indicates that the client knows the correct credentials.
+									-- Hence, everything is fine, except that the nonce is stale.
 								stale := true
 							else
 									-- Passed all checks.
@@ -629,7 +651,8 @@ feature -- Constants
 	Basic_auth_type: STRING_8 = "Basic"
 	Digest_auth_type: STRING_8 = "Digest"
 
-feature {NONE} -- Implementation: Digest
+-- TODO export to TESTING only
+feature -- Implementation: Digest
 
 	digest_hash_of_username_realm_and_password (a_server_username: READABLE_STRING_8; a_server_realm: READABLE_STRING_8; a_server_password: READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_server_nonce: READABLE_STRING_8): STRING_8
 			-- hash value of `a_server_username' , `a_server_realm', and `a_server_password',

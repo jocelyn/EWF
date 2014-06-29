@@ -138,6 +138,7 @@ feature -- Basic operations
 
 			create page.make
 
+				-- We always want the Authentication-Info header for digest.
 			if attached auth_digest_authentication_info (req) as l_info then
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			else
@@ -449,7 +450,7 @@ feature -- Server parameters
 	server_realm: STRING
 		-- String to be displayed to users so they know which username and password to use.
 
-feature -- Users
+feature -- Managers
 
 	nonce_manager: MEMORY_NONCE_MANAGER
 

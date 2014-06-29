@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <system xmlns="http://www.eiffel.com/developers/xml/configuration-1-12-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-12-0 http://www.eiffel.com/developers/xml/configuration-1-12-0.xsd" name="demo" uuid="9CB82EB8-CA38-44CD-9CC8-EBC56401BBB2">
 	<target name="demo">
-		<root class="DEMO_HTTP_AUTHORIZATION" feature="my_make"/>
+		<root class="TESTING" feature="test"/>
 		<file_rule>
 			<exclude>/EIFGENs$</exclude>
 			<exclude>/CVS$</exclude>
@@ -11,6 +11,7 @@
 			<debug name="demo_server" enabled="true"/>
 			<debug name="http-authorization" enabled="true"/>
 			<debug name="http_authorization" enabled="true"/>
+			<debug name="memory_nonce_manager" enabled="true"/>
 			<debug name="nonce-manager" enabled="true"/>
 			<debug name="user-manager" enabled="true"/>
 			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>

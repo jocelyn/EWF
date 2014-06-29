@@ -85,6 +85,19 @@ feature -- element change
 			Result := l_nonce
 		ensure
 			not_empty: not Result.is_empty
+			added: (old nonce_count_table.count) + 1 = nonce_count_table.count
+		end
+
+	add_nonce(a_nonce: STRING)
+			-- Creates new nonce `a_nonce' and stores it into `nonce_count_table', with a nonce-count value of 0.
+		require
+			unknown_nonce: not nonce_exists(a_nonce)
+		do
+
+			nonce_count_table.force (0, a_nonce)
+		ensure
+			added: nonce_exists (a_nonce)
+			nc_zero: nonce_count (a_nonce) = 0
 		end
 
 --	increment_nonce_count (a_nonce: STRING)
@@ -179,6 +192,11 @@ feature -- access
 			l_index := l_decoded_nonce.last_index_of (':', l_decoded_nonce.count)
 
 			l_time_string := l_decoded_nonce.substring (1, l_index - 1)
+
+			debug("memory_nonce_manager")
+				io.put_string ("Index: " + l_index.out + "%N")
+				io.put_string ("Time string: " + l_time_string + "%N")
+			end
 
 				-- Create result from this time.
 
