@@ -42,7 +42,10 @@ feature {NONE} -- nonce creation
 	new_nonce_value: STRING_8
 			-- Create a fresh nonce in the following format:
 			--		Base64(timeStamp : MD5(timeStamp : privateKey))
+			-- This format allows the server to reject a request if the time-stamp value is not recent enough, i.e.,
+			-- the server can limit the time of the nonce's validity.
 			-- TODO Create nonce according to suggestion in RFC 2617
+			-- This would allow the server to prevent a replay request for an updated version of the resource.
 		local
 			date_time: DATE_TIME
 			http_time: HTTP_DATE

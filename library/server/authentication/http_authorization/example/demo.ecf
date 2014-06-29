@@ -9,6 +9,7 @@
 		</file_rule>
 		<option debug="true" warning="true" full_class_checking="false" is_attached_by_default="true" void_safety="transitional" syntax="transitional">
 			<debug name="demo_server" enabled="true"/>
+			<debug name="http-auth testing" enabled="true"/>
 			<debug name="http-authorization" enabled="true"/>
 			<debug name="http_authorization" enabled="false"/>
 			<debug name="memory_nonce_manager" enabled="true"/>
@@ -24,7 +25,11 @@
 		<library name="http_auth" location="..\http_authorization-safe.ecf" readonly="false">
 			<option debug="true">
 				<debug name="http_authorization" enabled="true"/>
+				<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
 			</option>
+			<class_option class="HTTP_AUTHORIZATION">
+				<assertions precondition="true" postcondition="true" check="true" invariant="true"/>
+			</class_option>
 		</library>
 		<library name="time" location="$ISE_LIBRARY\library\time\time-safe.ecf"/>
 		<library name="wsf" location="..\..\..\wsf\wsf-safe.ecf"/>

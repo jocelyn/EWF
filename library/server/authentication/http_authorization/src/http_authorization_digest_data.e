@@ -1,5 +1,5 @@
 note
-	description: "Summary description for {HTTP_AUTHORIZATION_DIGEST_DATA}."
+	description: "This class represents data from the Authorization header, for digest authentication. It also checks the integrity of this data."
 	author: ""
 	date: "$Date$"
 	revision: "$Revision$"
@@ -15,14 +15,24 @@ create
 
 feature {NONE} -- Initialization
 
-	make (a_realm, a_nonce, a_uri, a_response: READABLE_STRING_8)
+	make (a_realm, a_nonce, a_uri, a_response: READABLE_STRING_8; a_nc, a_cnonce, a_qop, a_opaque, a_algorithm: detachable READABLE_STRING_8)
+		-- Initializie `current'.
+		-- Also takes detachable arguments, in order to use the class invariant.
 		require
 			a_response_not_empty: not a_response.is_empty
+		local
+			qop_void, nc_void, cnonce_void: BOOLEAN
 		do
 			realm := a_realm
 			nonce := a_nonce
 			uri := a_uri
 			response := a_response
+
+			nc := a_nc
+			cnonce := a_cnonce
+			qop := a_qop
+			opaque := a_opaque
+			algorithm := a_algorithm
 		end
 
 feature -- Access: mandatory
@@ -48,17 +58,6 @@ feature -- Access
 	algorithm: detachable READABLE_STRING_8 assign set_algorithm
 
 feature -- Status report
-
-		-- TODO Check this.
-	requirements_satisfied: BOOLEAN
-		do
-			if attached qop as l_qop and then not l_qop.is_empty then
-				Result := (attached cnonce as l_cnonce and then not l_cnonce.is_empty) and (attached nc as l_nc and then not l_nc.is_empty)
-			else
-				Result := (not attached cnonce as l_cnonce or else l_cnonce.is_empty) and
-							(not attached nc as l_nc or else l_nc.is_empty)
-			end
-		end
 
 	debug_output: STRING_32
 			-- String that should be displayed in debugger to represent `Current'.
@@ -86,8 +85,6 @@ feature -- Access
 			else
 				check nc_not_attached: False end
 			end
-		ensure
-			nc_non_negative: Result >= 0
 		end
 
 feature -- Change
@@ -150,9 +147,11 @@ feature -- Change
 		end
 
 invariant
-	realm_set: realm /= Void
-	nonce_set: nonce /= Void
-	uri_set: uri /= Void
-	response_not_empty: response /= Void and then not response.is_empty
+	response_not_empty: not response.is_empty
+	supported_qop: attached qop as l_qop implies l_qop.is_case_insensitive_equal ("auth")
+	supported_algorithm: attached algorithm as l_algorithm implies l_algorithm.is_case_insensitive_equal ("MD5")
+	qop_not_void: ((qop /= Void) = ((cnonce /= Void and nc /= Void)))
+	qop_void: ((qop = Void) = (cnonce = Void and nc = Void))
+	nc_positive: attached nc as l_nc implies l_nc.to_integer > 0
 
 end

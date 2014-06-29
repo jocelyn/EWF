@@ -36,8 +36,8 @@ feature -- Initialization
 			login := Void
 			password := Void
 
-
 			create http_authorization.make_from_string (a_http_authorization)
+
 			create t.make_empty
 			type := t
 
@@ -65,6 +65,8 @@ feature -- Initialization
 				else
 					report_bad_request ("Bad format")
 				end
+			else
+				report_bad_request ("Empty string")
 			end
 		ensure
 			a_http_authorization /= Void implies http_authorization /= Void
@@ -73,8 +75,6 @@ feature -- Initialization
 	make_basic_auth (u: READABLE_STRING_32; p: READABLE_STRING_32)
 			-- Create a Basic authentication.
 		do
-			io.put_string ("HTTP_AUTHORIZATION.make_basic_auth()%N")
-
 			make_custom_auth (u, p, Basic_auth_type)
 		ensure
 			is_basic
@@ -90,8 +90,6 @@ feature -- Initialization
 			t: STRING_8
 			utf: UTF_CONVERTER
 		do
-			io.put_string ("HTTP_AUTHORIZATION.make_custom_auth()%N")
-
 			login := u
 			password := p
 			create t.make_from_string (a_type)
@@ -103,10 +101,11 @@ feature -- Initialization
 			elseif t.is_case_insensitive_equal (Digest_auth_type) then
 				type := Digest_auth_type
 
-				-- TODO
+					-- TODO
 				to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
 				create http_authorization.make_from_string ("Digest ...NOT IMPLEMENTED")
 			else
+					-- TODO
 				to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
 				create http_authorization.make_from_string (t + " ...NOT IMPLEMENTED")
 			end
@@ -114,10 +113,14 @@ feature -- Initialization
 
 feature {NONE} -- Analyze
 
-	report_bad_request (mesg: detachable READABLE_STRING_8)
+	report_bad_request (a_msg: detachable READABLE_STRING_8)
+			-- Set `is_bad_request' flag and set `bad_request_message' to `a_msg'.
 		do
 			is_bad_request := True
-			bad_request_message := mesg
+			bad_request_message := a_msg
+		ensure
+			bad_request: is_bad_request
+			msg_set: (attached a_msg as l_msg and then attached bad_request_message as l_bad_msg and then l_msg.same_string_general(l_bad_msg)) or else a_msg = Void
 		end
 
 	analyze_basic_auth (a_basic_auth: READABLE_STRING_8)
@@ -178,10 +181,10 @@ feature {NONE} -- Analyze
 				-- Parse response
 			response_value := l_headers.item ("response")
 			if response_value = Void then
-				report_bad_request ("ERROR: Improper response: Void%N")
+				report_bad_request ("Improper response: Void%N")
 			elseif response_value.count /= 32 then
 					-- Response is not valid, set it to empty string.
-				report_bad_request ("ERROR: Improper response: " + response_value + "%N")
+				report_bad_request ("Improper response: " + response_value + "%N")
 				response_value := empty_string_8
 			end
 
@@ -196,13 +199,14 @@ feature {NONE} -- Analyze
 
 				-- Parse qop
 			qop_value := l_headers.item ("qop")
+
 			if
 				qop_value /= Void and then
 				not qop_value.is_case_insensitive_equal ("auth")
 			then
 					-- If the qop field is present, it has to be auth.
-					-- Other quality of protection is not supported so far.
-				report_bad_request ("ERROR: Illegal or unsupported qop: " + qop_value + "%N")
+					-- Other quality of protection is invalid or not yet supported.
+				report_bad_request ("Illegal or unsupported qop: " + qop_value + "%N")
 				qop_value := empty_string_8
 			end
 
@@ -210,11 +214,11 @@ feature {NONE} -- Analyze
 			algorithm_value := l_headers.item ("algorithm")
 			if
 				algorithm_value /= Void and then
-				not (algorithm_value.is_empty or algorithm_value.is_case_insensitive_equal ("MD5"))
+				not algorithm_value.is_case_insensitive_equal ("MD5")
 			then
 				-- If the algorithm field is present, it has to be MD5.	
-				-- Other algorithms are not supported so far.	
-				report_bad_request ("ERROR: Illegal or unsupported algorithm: " + algorithm_value + "%N")
+				-- Other algorithms are invalid or have not been supported so far.	
+				report_bad_request ("Illegal or unsupported algorithm: " + algorithm_value + "%N")
 				algorithm_value := empty_string_8
 			end
 
@@ -228,7 +232,7 @@ feature {NONE} -- Analyze
 				)
 			then
 					-- If the nc field is present, it has to have length 8 and be non-negative.							
-				report_bad_request ("ERROR: Improper nc: " + nc_value + "%N")
+				report_bad_request ("Improper nc: " + nc_value + "%N")
 				nc_value := empty_string_8
 			end
 
@@ -238,47 +242,25 @@ feature {NONE} -- Analyze
 				-- Parse opaque
 			opaque_value := l_headers.item ("opaque")
 
-				-- Check that all mandatory fields are actually attached.
-			if
-				login = Void
-				or realm_value = Void
-				or nonce_value = Void
-				or uri_value = Void
-				or response_value = Void
-			then
-				report_bad_request ("ERROR: Mandatory field not attached.%N")
-				digest_data := Void
-			else
-					-- Mandatory fields.
-				create d.make (realm_value, nonce_value, uri_value, response_value)
-					-- Non mandatory fields.
-				d.nc := nc_value
-				d.cnonce := cnonce_value
-				d.qop := qop_value
-				d.opaque := opaque_value
-				d.algorithm := algorithm_value
+			if not is_bad_request then
+					-- Until now, everything seems fine.
+					-- Apply further tests, and set `is_bad_request', if neccessary.
 
-				digest_data := d
+					-- Check that all mandatory fields are actually attached.
+				if
+					login = Void
+					or realm_value = Void
+					or nonce_value = Void
+					or uri_value = Void
+					or response_value = Void
+				then
+					report_bad_request ("Mandatory field not attached.%N")
+					digest_data := Void
+				else
+						-- Initialize digest-data, and check digest requirements (invariant).
+					create digest_data.make (realm_value, nonce_value, uri_value, response_value, nc_value, cnonce_value, qop_value, opaque_value, algorithm_value)
+				end
 			end
-		ensure
-			digest_values_attached:
-					(	attached login and
-						attached digest_data -- i.e realm, nonce, uri, and response are set!
-					) or is_bad_request
-
-			digest_requirements:
-					(	attached digest_data as l_digest_data and then
-						l_digest_data.requirements_satisfied
-					) or is_bad_request
-
-			nc_value: attached digest_data as l_digest_data and then
-					attached l_digest_data.nc as l_nc and then (l_nc.count /= 8 or l_nc.to_integer < 0) implies is_bad_request
-			supported_qop: attached digest_data as l_digest_data and then
-					attached l_digest_data.qop as l_qop implies (l_qop.is_empty and is_bad_request)
-					or l_qop.is_case_insensitive_equal ("auth")
-			supported_algorithm: attached digest_data as l_digest_data and then
-					attached l_digest_data.algorithm as l_algorithm implies (l_algorithm.is_empty and is_bad_request)
-					or l_algorithm.is_case_insensitive_equal ("MD5")
 		end
 
 feature -- Access
@@ -289,7 +271,6 @@ feature -- Access
 
 feature -- Access: basic			
 
-	-- TODO Should this be detachable?
 	login: detachable READABLE_STRING_8
 
 	password: detachable READABLE_STRING_8
@@ -304,12 +285,16 @@ feature -- Status report
 			-- Is Basic authorization?
 		do
 			Result := type.is_case_insensitive_equal (Basic_auth_type)
+		ensure
+			Result = type.is_case_insensitive_equal (Basic_auth_type)
 		end
 
 	is_digest: BOOLEAN
 			-- Is Digest authorization?
 		do
 			Result := type.is_case_insensitive_equal (Digest_auth_type)
+		ensure
+			Result = type.is_case_insensitive_equal (Digest_auth_type)
 		end
 
 	is_authorized_basic (a_user_manager: USER_MANAGER): BOOLEAN
@@ -340,38 +325,31 @@ feature -- Status report
 			ha2: STRING_8
 			l_expected_response: STRING_8
 		do
---			debug ("http_authorization")
---				io.put_string ("Checking digest authorization...%N")
---			end
+			debug ("http_authorization")
+				io.put_string ("Checking digest authorization...%N")
+			end
 
-			if
-				attached digest_data as l_digest and then
-				(
-					attached l_digest.realm as l_realm and
-					attached l_digest.response as l_response and
-					attached l_digest.nonce as l_nonce
-				)
-			then
-				if a_nonce_manager.nonce_exists (l_nonce) and attached login as l_login and then attached a_user_manager.password (l_login) as l_pw then
+			if attached digest_data as l_digest then
+				if a_nonce_manager.nonce_exists (l_digest.nonce) and attached login as l_login and then attached a_user_manager.password (l_login) as l_pw then
 						-- Compute expected response.
-					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_nonce)
+					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_digest.nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
-					l_expected_response := digest_expected_response (ha1, ha2, l_nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
+					l_expected_response := digest_expected_response (ha1, ha2, l_digest.nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
 
 						-- Check response.
-					if l_expected_response.same_string (l_response) then
+					if l_expected_response.same_string (l_digest.response) then
 						if l_digest.nc /= Void then
 								-- Check nonce-count.
 								-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
 								-- This way we can detect replays.
 
-							if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_nonce) then
+							if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_digest.nonce) then
 
 									-- Set nonce-count to current value.
-								a_nonce_manager.set_nonce_count (l_nonce, l_digest.nc_as_integer)
+								a_nonce_manager.set_nonce_count (l_digest.nonce, l_digest.nc_as_integer)
 
 									-- Check for staleness.
-								if a_nonce_manager.is_nonce_stale (l_nonce) then
+								if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
 										-- Request has an invalid nonce, but a valid digest for that nonce.
 										-- This indicates that the client knows the correct credentials.
 										-- Hence, everything is fine, except that the nonce is stale.
@@ -386,12 +364,12 @@ feature -- Status report
 								io.putstring ("nonce-count not specified%N")
 							end
 
-								-- Nonce-count MUST NOT be speified if the server did not send a qop directive in the
+								-- Recall: nonce-count MUST NOT be speified if the server did not send a qop directive in the
 								-- WWW-Authenticate header field.
 							check qop_void: a_server_qop = Void end
 
 								-- Check for staleness.
-							if a_nonce_manager.is_nonce_stale (l_nonce) then
+							if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
 									-- Request has an invalid nonce, but a valid digest for that nonce.
 									-- This indicates that the client knows the correct credentials.
 									-- Hence, everything is fine, except that the nonce is stale.
@@ -403,17 +381,17 @@ feature -- Status report
 						end
 					else
 						debug ("http_authorization")
-							if not l_expected_response.same_string (l_response) then
+							if not l_expected_response.same_string (l_digest.response) then
 								io.putstring ("Wrong response%N")
 							else
-								io.putstring ("Expected nc: " + (a_nonce_manager.nonce_count (l_nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
+								io.putstring ("Expected nc: " + (a_nonce_manager.nonce_count (l_digest.nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
 							end
 						end
 					end
 				else
 					debug ("http_authorization")
-						if not a_nonce_manager.nonce_exists (l_nonce) then
-							io.put_string ("We don't know this nonce:%N   " + l_nonce + ".%N")
+						if not a_nonce_manager.nonce_exists (l_digest.nonce) then
+							io.put_string ("We don't know this nonce:%N   " + l_digest.nonce + ".%N")
 						elseif login = Void then
 							io.put_string ("ERROR: login not attached.%N")
 						else
@@ -422,9 +400,8 @@ feature -- Status report
 					end
 				end
 			else
-				debug ("http_authorization")
-					io.put_string ("Could not compute expected response since something was not attached.")
-				end
+					-- This is not allowed to happen.
+				check not_allowed: False end
 			end
 		ensure
 			result_lightweight_check: Result implies
@@ -528,9 +505,6 @@ feature -- Access: digest
 				ha1 := digest_hash_of_username_realm_and_password (l_login, l_realm, l_password, l_digest.algorithm, l_nonce)
 				ha2 := digest_hash_of_method_and_uri (a_request_method, l_digest.uri, l_digest.algorithm, l_digest.qop, True)
 				rspauth := digest_expected_response (ha1, ha2, l_digest.nonce, l_digest.qop, l_digest.algorithm, l_digest.nc, l_digest.cnonce)
-
-					-- TODO What happens rspauth is wrong?
---					values.force ("rspauth=%"" + "abcd" + "%"")
 
 				values.force ("rspauth=%"" + rspauth + "%"")
 
@@ -701,7 +675,7 @@ feature -- Implementation: Digest
 
 	digest_expected_response (ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; a_server_nonce: READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_8; a_cnonce: detachable READABLE_STRING_8) : STRING_8
 			-- Compute expected response.
-			-- also known as response in the related wikipedia page.
+			-- Also known as response in the related wikipedia page.
 			--
 			-- If the qop directive's value is "auth" or "auth-int", then compute the response as follows:
 			--    {response} = {MD5}( {HA1} : {nonce} : {nonceCount} : {clientNonce} : {qop} : {HA2} )
@@ -753,9 +727,8 @@ feature -- Helpers: hash, md5
 		end
 
 invariant
-	type_valid: is_digest or else is_basic or else is_bad_request
+	type_valid_or_bad_request: is_digest or else is_basic or else is_bad_request
 	is_valid_digest_or_bad_request: (is_digest and not is_bad_request) implies digest_data /= Void
-	is_valid_basic_or_bad_request: (is_basic and not is_bad_request) implies (login /= Void and password /= Void)
-	login_attached: (not attached login) implies is_bad_request
-
+	is_valid_basic_or_bad_request: (is_basic and not is_bad_request) implies password /= Void
+	login_attached_or_bad_request: (login = Void) implies is_bad_request
 end

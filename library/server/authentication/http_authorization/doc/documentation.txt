@@ -1,0 +1,27 @@
+TODO (Things that COULD, SHOULD or even MUST be done)
+--------------------------------------------------------
+
+* Create nonce according to suggestion in RFC 2617
+* I chose to build strings using '+'. This is a trade-off. You could also use the append function.
+* Storing passwords
+	The server may store pairs consisting of username and H(A1).
+* Log invalid requests
+	If the request digest is invalid, then a login failure should be logged, since repeated login failures from a single client may indicate an attacker
+	attempting to guess passwords.
+* qop
+	I only supported "auth" quality of protection.
+	You may want to consider "auth-int" too.
+* Algorithms
+	The most recent attacks on MD5 render it largely obsoloete. Specification [3] - which, if approved, obsoletes RFC 2617 - defines the following algorithms:
+		SHA-256 (mandatory to implement)
+     		SHA-512/256 (backup)
+     		MD5 (only for backward compatibility!)
+	You may also want to implement the *-sess variants.
+* uri
+	The server MUST assure that the resource designated by the "uri" diretive i sthe same as the resource specified in the Request-Line;
+	if they are not, the server SHOULD return a 400 Bad Request error.
+* Note that there are specifications which (could) obsolete RFC 2617.
+* Interaction with shared caches / Cache-Control.
+* Proxy-Authentication and Proxy-Authorization
+
+	

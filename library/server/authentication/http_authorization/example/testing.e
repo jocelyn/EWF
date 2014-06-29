@@ -18,6 +18,9 @@ feature
 			user_manager.put_credentials ("eiffel", "world")
 			user_manager.put_credentials ("geschke", "geheim")
 
+				-- Init constants.
+			http_method := "GET"
+
 				-- Perform checks.
 			digest_check
 			rspauth_check
@@ -36,22 +39,27 @@ feature -- Managers
 
 feature -- Constants
 
-	http_method: STRING = "GET"
+	http_method: STRING
 
 feature -- Tests
 
 	digest_check
 			-- Check digest parsing and response.
+			-- Includes checking the authorization, is_bad_request flag and stale flag.
+			-- NOTE: The stale flag is only set, if the response matches the expectation (i.e., the stale flag being set implies that the response is as expected).
 		do
+			debug ("http-auth testing")
+				io.putstring ("Checking digest...%N")
+			end
+
 			check
-					-- Standard.
+					-- Standard
 				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", true, false, false)
 
-					-- With qop = auth, but wrong result.
-					-- NOTE The stale flag is only set, if the response matches the expectation.
+					-- Wrong response
 				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"00000000000000000000000000000000%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, false)
 
-					-- Without qop.
+					-- Without qop
 				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAwODo0ODozMiBHTVQ6Y2UyYWNjODIxYWVlNTA1OWIwMGIxOWIzNDc3MDk3NDk=%", uri=%"/login%", algorithm=MD5, response=%"060135c5e618128e2759061defe8c8dc%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", true, false, false)
 
 					-- Wrong qop
@@ -80,6 +88,10 @@ feature -- Tests
 			rspauth: STRING
 			authentication_method: STRING
 		do
+			debug ("http-auth testing")
+				io.putstring ("Checking rspauth...%N")
+			end
+
 			www_authenticate_string := "WWW-Authenticate: Digest realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", algorithm=MD5, domain=%"/digest%", qop=%"auth%""
 			authorization_string := "Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%""
 
@@ -107,10 +119,16 @@ feature -- Tests
 
 	nonce_manager_check
 			-- Check nonce-manager.
+			-- Includes checking whether the manager knows which nonces exist and which not,
+			-- and whether a nonce is stale or not.
 		local
 			exec_environment: EXECUTION_ENVIRONMENT
 			l_nonce: STRING
 		do
+			debug ("http-auth testing")
+				io.putstring ("Checking nonce manager...%N")
+			end
+
 			create exec_environment
 
 				-- Unknown nonce
@@ -135,7 +153,11 @@ feature -- Tests
 
 	user_manager_check
 			-- Check user-manager
+			-- Includes checking whether the manager knows which users exist and which not.
 		do
+			debug ("http-auth testing")
+				io.putstring ("Checking user manager...%N")
+			end
 				-- Unknown user
 			check
 				not user_manager.user_exists ("Damian")
@@ -149,8 +171,13 @@ feature -- Tests
 		end
 
 	basic_check
-			-- Check basic authentication
+			-- Check basic authentication.
+			-- This check basically tests the BASE64 en- and decoding, and is not really necessary here.
 		do
+			debug ("http-auth testing")
+				io.putstring ("Checking basic...%N")
+			end
+
 			check
 				-- Basic correct
 				((create {BASE64}).decoded_string ("ZWlmZmVsOndvcmxk")).same_string("eiffel:world")
@@ -170,7 +197,7 @@ feature -- Tests
 feature -- Digest response
 
 	check_response_digest (authorization_string: STRING; a_stale_expected: BOOLEAN; a_authorization_expected: BOOLEAN; a_bad_request_expected: BOOLEAN): BOOLEAN
-			-- True if the computed response matches the expected response.
+			-- True if the authorization, is_bad_request flag and stale flag are as expected.
 		local
 			auth: HTTP_AUTHORIZATION
 			authorized: BOOLEAN
@@ -179,38 +206,28 @@ feature -- Digest response
 				-- Therefore the nonce-manager will tell us that the time from the nonce is in 1970.
 			create auth.make (authorization_string)
 
-			if
-				attached auth.digest_data as d and then
-				(
-					attached d.realm as l_realm and
-					attached d.uri as l_uri and
-					attached auth.login as l_login and
-					attached d.nonce as l_nonce
-				)
+			if auth.is_bad_request then
+				Result := (auth.is_bad_request = a_bad_request_expected)
+			elseif
+				attached auth.digest_data as d and attached auth.login as l_login
 			then
-				if not nonce_manager.nonce_exists (l_nonce) then
-					nonce_manager.add_nonce (l_nonce)
+					-- Add the nonce, if necessary.
+				if not nonce_manager.nonce_exists (d.nonce) then
+					nonce_manager.add_nonce (d.nonce)
 				end
 
+				authorized := auth.is_authorized_digest (nonce_manager, user_manager, d.realm, http_method, d.uri, d.algorithm, d.qop)
 
-				authorized := auth.is_authorized_digest (nonce_manager, user_manager, l_realm, http_method, l_uri, d.algorithm, d.qop)
-
-				if a_bad_request_expected then
-					Result := (auth.is_bad_request = a_bad_request_expected)
-				else
-					Result := (auth.is_bad_request = a_bad_request_expected) and (auth.stale = a_stale_expected) and (authorized = a_authorization_expected)
-				end
+				Result := (auth.is_bad_request = a_bad_request_expected) and (auth.stale = a_stale_expected) and (authorized = a_authorization_expected)
 
 				if not Result then
 					io.putstring ("Authorized: " + authorized.out + ", expected: " + a_authorization_expected.out + "%N")
 					io.putstring ("Bad request: " + auth.is_bad_request.out + ", expected: " + a_bad_request_expected.out + "%N")
 					io.putstring ("Stale: " + auth.stale.out + ", expected: " + a_stale_expected.out + "%N")
 				end
-
 			else
-				io.putstring ("This cannot happen.")
+				io.putstring ("This is not allowed to happen.")
 				check False end
 			end
 		end
-
 end

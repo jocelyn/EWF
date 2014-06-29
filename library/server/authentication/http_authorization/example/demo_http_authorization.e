@@ -104,7 +104,9 @@ feature -- Basic operations
 
 					-- NOTE: The client could have sent an Authorization header for these areas,
 					-- even if this is not necessary.
-					-- Therefore, we may miss some nonce-counts.
+					-- Therefore, we may miss some nonce-counts here.
+					-- Note that this is no problem (we don't even recognize it), as we only require
+					-- that the nonce-count is strictly increasing, but we allow some values to be skipped.
 				handle_other (req, res)
 			end
 		end
@@ -202,11 +204,6 @@ feature -- Basic operations
 			append_html_footer (req, s)
 
 			create page.make
-			if attached auth_digest_authentication_info (req) as l_info then
-					-- Should we send this if no user is authenticated?
-					-- TODO No.
-				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
-			end
 			page.set_body (s)
 			res.send (page)
 		end
@@ -513,7 +510,7 @@ feature -- Helper
 			l_logout_url := req.absolute_script_url ("/login")
 
 			 	-- Hack to clear http authorization, i.e connect with bad username "_".
-			 	-- TODO Maybe there is a cleaner solution than this.
+			 	-- TODO logout porperly.
 			l_logout_url.replace_substring_all ("://", "://_@")
 			s.append ("<li><a href=%""+ l_logout_url +"%">logout</a></li>")
 
