@@ -1,8 +1,5 @@
 note
-	description: "Test digest access authentication."
-	author: ""
-	date: "$Date$"
-	revision: "$Revision$"
+	description: "Test digest access authentication, as well as user- and nonce-managers"
 
 class
 	TESTING
@@ -13,30 +10,76 @@ create
 feature
 
 	test
-		local
-			auth: HTTP_AUTHORIZATION
-			authorization_string: STRING
-			www_authenticate_string: STRING
-			login, password, realm, method, uri, algorithm, qop, nonce: STRING
-			HA1, HA2: STRING
-			rspauth: STRING
-			authentication_method: STRING
-			exec_environment: EXECUTION_ENVIRONMENT
-			l_nonce: STRING
 		do
 			create user_manager.make
 			create nonce_manager.make(2)
-			create exec_environment
 
 				-- Init credentials.
 			user_manager.put_credentials ("eiffel", "world")
 			user_manager.put_credentials ("geschke", "geheim")
 
-				-- Checking digest.
+				-- Perform checks.
+			digest_check
+			rspauth_check
+			nonce_manager_check
+			user_manager_check
+			basic_check
 
+				-- Terminated successfully.
+			io.putstring ("%NPassed all checks!%N%N")
+		end
 
-				-- Checking rspauth.
-				-- Try to recompute rspauth from this example: http://www.lug-erding.de/artikel/HTTPundSquid.html
+feature -- Managers
+
+		user_manager: MEMORY_USER_MANAGER
+		nonce_manager: MEMORY_NONCE_MANAGER
+
+feature -- Constants
+
+	http_method: STRING = "GET"
+
+feature -- Tests
+
+	digest_check
+			-- Check digest parsing and response.
+		do
+			check
+					-- Standard.
+				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", true, false, false)
+
+					-- With qop = auth, but wrong result.
+					-- NOTE The stale flag is only set, if the response matches the expectation.
+				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"00000000000000000000000000000000%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, false)
+
+					-- Without qop.
+				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAwODo0ODozMiBHTVQ6Y2UyYWNjODIxYWVlNTA1OWIwMGIxOWIzNDc3MDk3NDk=%", uri=%"/login%", algorithm=MD5, response=%"060135c5e618128e2759061defe8c8dc%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", true, false, false)
+
+					-- Wrong qop
+				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth-int, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, true)
+
+					-- Without algorithm
+				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMToyNzo0OCBHTVQ6OTdhYTBmYTEzOWNlODg1OTJiM2M2ZTUwYTEwODc3ZmI=%", uri=%"/login%", qop=auth, response=%"aa5b9592e3b2aa1da186caac3b8c3d82%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%", nc=00000001, cnonce=%"220d8c34daa301b9%"", true, false, false)
+
+					-- Wrong algorithm
+				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5-sess, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, true)
+
+					-- Without qop and algorithm
+				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMTozMzoyNiBHTVQ6ZDFiNjQxYjUyNmYzMTMzNjhiMzJhZDFjMjkyMzgxZmQ=%", uri=%"/login%", response=%"631b74f544c67c8cdf8a37dc139cc320%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", true, false, false)
+			end
+		end
+
+	rspauth_check
+			-- Check rspauth for digest.
+			-- Try to recompute rspauth from this example: http://www.lug-erding.de/artikel/HTTPundSquid.html
+		local
+			auth: HTTP_AUTHORIZATION
+			authorization_string: STRING
+			www_authenticate_string: STRING
+			login, password, realm, uri, algorithm, qop, nonce: STRING
+			HA1, HA2: STRING
+			rspauth: STRING
+			authentication_method: STRING
+		do
 			www_authenticate_string := "WWW-Authenticate: Digest realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", algorithm=MD5, domain=%"/digest%", qop=%"auth%""
 			authorization_string := "Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%""
 
@@ -60,34 +103,15 @@ feature
 			check
 				rspauth.same_string ("a65658cb1cccea078b35c321a6ce3132");
 			end
+		end
 
-				-- Checking digest parsing and response.
-			check
-					-- Standard.
-				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", true, false, false)
-
-					-- With qop = auth, but wrong result.
-					-- NOTE The stale flag is only set, if the response matches the expectation.
-				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"00000000000000000000000000000000%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, false)
-
-					-- Without qop.
-				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAwODo0ODozMiBHTVQ6Y2UyYWNjODIxYWVlNTA1OWIwMGIxOWIzNDc3MDk3NDk=%", uri=%"/login%", algorithm=MD5, response=%"060135c5e618128e2759061defe8c8dc%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", true, false, false)
-
-					-- Wrong qop
-				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth-int, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, true)
-
-					-- Without algorithm
-				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMToyNzo0OCBHTVQ6OTdhYTBmYTEzOWNlODg1OTJiM2M2ZTUwYTEwODc3ZmI=%", uri=%"/login%", qop=auth, response=%"aa5b9592e3b2aa1da186caac3b8c3d82%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%", nc=00000001, cnonce=%"220d8c34daa301b9%"", true, false, false)
-
-					-- Wrong algorithm
-				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5-sess, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, true)
-
-					-- Without qop and algorithm
-				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMTozMzoyNiBHTVQ6ZDFiNjQxYjUyNmYzMTMzNjhiMzJhZDFjMjkyMzgxZmQ=%", uri=%"/login%", response=%"631b74f544c67c8cdf8a37dc139cc320%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", true, false, false)
-
-			end
-
-				-- Nonce manager
+	nonce_manager_check
+			-- Check nonce-manager.
+		local
+			exec_environment: EXECUTION_ENVIRONMENT
+			l_nonce: STRING
+		do
+			create exec_environment
 
 				-- Unknown nonce
 			check
@@ -107,9 +131,11 @@ feature
 			check
 				stale: nonce_manager.is_nonce_stale (l_nonce)
 			end
+		end
 
-				-- User manager
-
+	user_manager_check
+			-- Check user-manager
+		do
 				-- Unknown user
 			check
 				not user_manager.user_exists ("Damian")
@@ -120,9 +146,11 @@ feature
 			check
 				user_manager.user_exists ("eiffel")
 			end
+		end
 
-				-- Checking basic.
-
+	basic_check
+			-- Check basic authentication
+		do
 			check
 				-- Basic correct
 				((create {BASE64}).decoded_string ("ZWlmZmVsOndvcmxk")).same_string("eiffel:world")
@@ -136,28 +164,16 @@ feature
 					-- Everything wrong
 				not ((create {BASE64}).decoded_string ("Arbitrary")).same_string("eiffel:world")
 			end
-
-			io.putstring ("%NPassed all checks!%N%N")
-
 		end
 
-feature -- Managers
 
-
-			user_manager: MEMORY_USER_MANAGER
-			nonce_manager: MEMORY_NONCE_MANAGER
-
-feature -- Constants
-	http_method: STRING = "GET"
-
-feature
+feature -- Digest response
 
 	check_response_digest (authorization_string: STRING; a_stale_expected: BOOLEAN; a_authorization_expected: BOOLEAN; a_bad_request_expected: BOOLEAN): BOOLEAN
 			-- True if the computed response matches the expected response.
 		local
 			auth: HTTP_AUTHORIZATION
 			authorized: BOOLEAN
-			time: HTTP_DATE
 		do
 				-- NOTE: The nonce in the Authorization header we check does not have our format.
 				-- Therefore the nonce-manager will tell us that the time from the nonce is in 1970.

@@ -340,9 +340,9 @@ feature -- Status report
 			ha2: STRING_8
 			l_expected_response: STRING_8
 		do
-			debug ("http_authorization")
-				io.put_string ("Checking digest authorization...%N")
-			end
+--			debug ("http_authorization")
+--				io.put_string ("Checking digest authorization...%N")
+--			end
 
 			if
 				attached digest_data as l_digest and then
@@ -385,7 +385,7 @@ feature -- Status report
 							debug ("http_authorization")
 								io.putstring ("nonce-count not specified%N")
 							end
-							
+
 								-- Nonce-count MUST NOT be speified if the server did not send a qop directive in the
 								-- WWW-Authenticate header field.
 							check qop_void: a_server_qop = Void end

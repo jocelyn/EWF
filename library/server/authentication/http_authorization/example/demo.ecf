@@ -10,7 +10,7 @@
 		<option debug="true" warning="true" full_class_checking="false" is_attached_by_default="true" void_safety="transitional" syntax="transitional">
 			<debug name="demo_server" enabled="true"/>
 			<debug name="http-authorization" enabled="true"/>
-			<debug name="http_authorization" enabled="true"/>
+			<debug name="http_authorization" enabled="false"/>
 			<debug name="memory_nonce_manager" enabled="true"/>
 			<debug name="nonce-manager" enabled="true"/>
 			<debug name="user-manager" enabled="true"/>
