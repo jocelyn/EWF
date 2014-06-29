@@ -21,20 +21,22 @@ feature
 			HA1, HA2: STRING
 			rspauth: STRING
 			authentication_method: STRING
+			exec_environment: EXECUTION_ENVIRONMENT
+			l_nonce: STRING
 		do
 			create user_manager.make
-			create nonce_manager.make(10)
+			create nonce_manager.make(2)
+			create exec_environment
 
+				-- Init credentials.
 			user_manager.put_credentials ("eiffel", "world")
 			user_manager.put_credentials ("geschke", "geheim")
-			-- Checking digest.
+
+				-- Checking digest.
 
 
-
-
-			-- Checking rspauth.
-			-- Try to recompute rspauth from this example: http://www.lug-erding.de/artikel/HTTPundSquid.html
-
+				-- Checking rspauth.
+				-- Try to recompute rspauth from this example: http://www.lug-erding.de/artikel/HTTPundSquid.html
 			www_authenticate_string := "WWW-Authenticate: Digest realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", algorithm=MD5, domain=%"/digest%", qop=%"auth%""
 			authorization_string := "Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%""
 
@@ -59,7 +61,7 @@ feature
 				rspauth.same_string ("a65658cb1cccea078b35c321a6ce3132");
 			end
 
-				-- Checking that the server computes the right expected response field.
+				-- Checking digest parsing and response.
 			check
 					-- Standard.
 				check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", true, false, false)
@@ -83,20 +85,59 @@ feature
 					-- Without qop and algorithm
 				check_response_digest ("Digest username=%"eiffel%", realm=%"testrealm@host.com%", nonce=%"U2F0LCAyNCBNYXkgMjAxNCAxMTozMzoyNiBHTVQ6ZDFiNjQxYjUyNmYzMTMzNjhiMzJhZDFjMjkyMzgxZmQ=%", uri=%"/login%", response=%"631b74f544c67c8cdf8a37dc139cc320%", opaque=%"5ccc069c403ebaf9f0171e9517f40e41%"", true, false, false)
 
-					-- Everything ok, especially nonce not stale.
-					
-					-- Basic
+			end
+
+				-- Nonce manager
+
+				-- Unknown nonce
+			check
+				not nonce_manager.nonce_exists ("a2F0LCAyNCBNYXkgMjAxNCAxMTozMzoyNiBHTVQ6ZDFiNjQxYjUyNmYzMTMzNjhiMzJhZDFjMjkyMzgxZmQ=%"")
+			end
+
+				-- Not stale
+			l_nonce := nonce_manager.new_nonce
+
+			check
+				not_stale: not nonce_manager.is_nonce_stale (l_nonce)
+			end
+
+			exec_environment.sleep (3000000000)
+
+				-- Stale
+			check
+				stale: nonce_manager.is_nonce_stale (l_nonce)
+			end
+
+				-- User manager
+
+				-- Unknown user
+			check
+				not user_manager.user_exists ("Damian")
+				not user_manager.user_exists ("Eiffel")
+			end
+
+				-- Known user
+			check
+				user_manager.user_exists ("eiffel")
+			end
+
+				-- Checking basic.
+
+			check
+				-- Basic correct
 				((create {BASE64}).decoded_string ("ZWlmZmVsOndvcmxk")).same_string("eiffel:world")
 
 					-- Wrong password
-				not ((create {BASE64}).decoded_string ("Arbitry")).same_string("eiffel:world")
+				not ((create {BASE64}).decoded_string ("ZWlmZmVsOndvcmw=")).same_string("eiffel:world")
 
 					-- Wrong username
+				not ((create {BASE64}).decoded_string ("ZWlmZmU6d29ybGQ=")).same_string("eiffel:world")
 
-					-- Unknown nonce
-
-					-- Stale nonce
+					-- Everything wrong
+				not ((create {BASE64}).decoded_string ("Arbitrary")).same_string("eiffel:world")
 			end
+
+			io.putstring ("%NPassed all checks!%N%N")
 
 		end
 
@@ -154,7 +195,6 @@ feature
 				io.putstring ("This cannot happen.")
 				check False end
 			end
-
 		end
 
 end
