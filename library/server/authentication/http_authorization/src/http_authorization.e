@@ -644,7 +644,7 @@ feature -- Constants
 	Basic_auth_type: STRING_8 = "Basic"
 	Digest_auth_type: STRING_8 = "Digest"
 
-		-- TODO export to TESTING only
+		-- TODO export to HTTP_AUTHORIZATION_DIGEST_TESTS only
 feature -- Implementation: Digest
 
 	digest_hash_of_username_realm_and_password (a_server_username: READABLE_STRING_8; a_server_realm: READABLE_STRING_8; a_server_password: READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_server_nonce: READABLE_STRING_8): STRING_8

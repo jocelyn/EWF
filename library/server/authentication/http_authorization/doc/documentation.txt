@@ -1,7 +1,35 @@
-TODO (Things that COULD, SHOULD or even MUST be done)
+Overview (by classes)
 --------------------------------------------------------
+* HTTP_AUTHORIZATION
+	Class representing http Authorization header.
+	It parses basic and digest Authorization headers, and then -- if it is not a bad request -- decides whether the server should grant access or not.
+	For digest, it includes (amongst others) the following tests
+		Correct response
+		Nonce staleness
+		Nonce-count (nonce-replay)
+		URI matches the one in the request line.
+	This class also computes all the hashes needed.
+	I pushed as much of the complexity to this class, s.t. the server does not have to deal with too many details of the authentication.
+	Currently, only the algorithm MD5 and "auth" quality of protection are supported.
+* {USER, NONCE}_MANAGER
+	Deferred classes that manage the {users, nonces}.
+* MEMORY_{USER, NONCE}_MANAGER
+	Effective descendants of above classes.
+* DEMO_HTTP_AUTHORIZATION
+	Simple application root class. 
+	Server which supports both basic and digest authentication, and can handle multiple users at the same time.
+	It is intended as a simple example of how to use digest authentication, a real server would probably be much more complex.
+	This class issues WWW-Authenticate headers and receives Authorization headers, which it then checks using the HTTP_AUTHORIZATION class.
+	Depending on the outcome of these tests, it then decides how to respond to the underlying request.
+	If a digest authentication is successful, it communicates this via an Authentication-Info header.
+	It also "supports" logout, but only "as a hack"...
+	This class maintains the nonce and user managers, and passes them to the HTTP_AUTHORIZATION class.
+	The server has just one protection space.
 
-* Create nonce according to suggestion in RFC 2617
+
+TODO (not sorted by priority / urgency)
+--------------------------------------------------------
+* Create nonce according to suggestion [1]
 	Especially, use E-Tag.
 * Storing passwords
 	The server may store pairs consisting of username and H(A1), which has obvious advantages.
@@ -22,18 +50,21 @@ TODO (Things that COULD, SHOULD or even MUST be done)
 	if they are not, the server SHOULD return a 400 Bad Request error.
 * Note that there are much newer specifications which (could or do) obsolete / update RFC 2617.
 * Nonce limitation
-	As can be seen im my comments, there are other ways to limit a nonce's use.
-	You may want to assign a nonce to a user etc.
+	As can be seen im my comments, there are other ways to limit a nonce's use.	
+	For example, you may want to assign a nonce to a user etc.
 * User manager
 	Until now, the server allows a user to log in multiple times, without logging out before.
 	The server could keep track of logged-in users.
 * Interaction with shared caches / Cache-Control.
+	See section 3.2.2.5 in [1]
 * Proxy-Authentication and Proxy-Authorization
-* I chose to build strings using '+'. This is a trade-off. You may prefer using the append function.
+	See section 3.6 in [1]
+(* I chose to build strings using '+'. This is a trade-off. You may prefer using the append function.)
+
 
 References
 --------------------------------------------------------
-I used the following references, sometimes even literal excerpts from
+I used the following references, sometimes even for literal excerpts:
 
 [1] https://www.ietf.org/rfc/rfc2617.txt
 [2] http://tools.ietf.org/html/draft-ietf-httpauth-digest-07
