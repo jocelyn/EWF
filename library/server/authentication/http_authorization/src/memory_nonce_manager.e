@@ -176,7 +176,7 @@ feature -- access
 					-- These nonces have the format we require.
 					-- For testing, it is very convenient to return zero at this poit.
 
-					-- TODO Add check wrong_format: False end
+					-- TODO When not testing any more, add check wrong_format: False end
 				create l_http_date.make_from_timestamp (0)
 			else
 				l_time_string := l_decoded_nonce.substring (1, l_index - 1)
@@ -189,8 +189,6 @@ feature -- access
 			end
 
 			Result := l_http_date.date_time
-
-			io.putstring ("Time from nonce: " + Result.out + "%N")
 		end
 
 feature -- private key

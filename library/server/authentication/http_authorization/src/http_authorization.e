@@ -69,7 +69,7 @@ feature -- Initialization
 				report_bad_request ("Empty string")
 			end
 		ensure
-			a_http_authorization /= Void implies http_authorization /= Void
+			http_auth_string: a_http_authorization /= Void implies http_authorization /= Void
 		end
 
 	make_basic_auth (u: READABLE_STRING_32; p: READABLE_STRING_32)
@@ -343,10 +343,8 @@ feature -- Status report
 					ha1 := digest_hash_of_username_realm_and_password (l_login, a_server_realm, l_pw, a_server_algorithm, l_digest.nonce)
 					ha2 := digest_hash_of_method_and_uri (a_server_method, a_server_uri, a_server_algorithm, a_server_qop, False)
 					l_expected_response := digest_expected_response (ha1, ha2, l_digest.nonce, a_server_qop, a_server_algorithm, l_digest.nc, l_digest.cnonce)
-
 						-- Check response.
 					if l_expected_response.same_string (l_digest.response) then
-
 							-- Check URI.
 							-- NOTE: The "request-uri" value is the Request-URI from the request line. This may be "*", an "absoluteURL" or and "abs_path",
 							-- but it MUST agree with the Request-URI.

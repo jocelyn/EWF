@@ -49,6 +49,8 @@ feature -- status report
 			-- Is username `a_user' known?
 		do
 			Result := password_table.has (a_user)
+		ensure then
+			result_correct: Result = password_table.has (a_user)
 		end
 
 feature -- access
@@ -57,6 +59,8 @@ feature -- access
 			-- Password associated with `a_user', or Void, if `a_user' is unknown.
 		do
 			Result := password_table.item (a_user)
+		ensure then
+			result_correct: Result = password_table.item (a_user)
 		end
 
 end

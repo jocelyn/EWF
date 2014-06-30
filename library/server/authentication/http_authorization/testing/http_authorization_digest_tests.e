@@ -47,9 +47,8 @@ feature -- Tests
 			-- Check digest parsing and response.
 			-- Includes checking the authorization, is_bad_request flag and stale flag.
 			-- NOTE: The stale flag is only set, if the response matches the expectation (i.e., the stale flag being set implies that the response is as expected).
+			-- This is a hack to be able to use tests with nonces that do not match our format.
 		do
-			io.putstring ("Checking digest...%N")
-
 				-- Standard
 			assert ("digest check : standard", check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", true, false, false))
 
@@ -90,8 +89,6 @@ feature -- Tests
 			rspauth: STRING
 			authentication_method: STRING
 		do
-			io.putstring ("Checking rspauth...%N")
-
 			www_authenticate_string := "WWW-Authenticate: Digest realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", algorithm=MD5, domain=%"/digest%", qop=%"auth%""
 			authorization_string := "Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%""
 
@@ -107,9 +104,7 @@ feature -- Tests
 			create auth.make (authorization_string)
 
 			HA1 := auth.digest_hash_of_username_realm_and_password (login, realm, password, algorithm, nonce)
-
 			HA2 := auth.digest_hash_of_method_and_uri (http_method, uri, algorithm, qop, True)
-
 			rspauth := auth.digest_expected_response (HA1, HA2, nonce, qop, algorithm, "00000001", "a5a3399a2aa0895c")
 
 			assert ("rspauth" , rspauth.same_string ("a65658cb1cccea078b35c321a6ce3132"))
@@ -123,8 +118,6 @@ feature -- Tests
 			exec_environment: EXECUTION_ENVIRONMENT
 			l_nonce: STRING
 		do
-			io.putstring ("Checking nonce manager...%N")
-
 			create exec_environment
 
 				-- Unknown nonce
@@ -209,5 +202,3 @@ feature {NONE} -- Digest response
 		end
 
 end
-
-

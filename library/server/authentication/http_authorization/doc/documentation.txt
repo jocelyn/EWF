@@ -59,6 +59,7 @@ TODO (not sorted by priority / urgency)
 	See section 3.2.2.5 in [1]
 * Proxy-Authentication and Proxy-Authorization
 	See section 3.6 in [1]
+* UTF_8 decoding to support unicode usernames and passwords.
 (* I chose to build strings using '+'. This is a trade-off. You may prefer using the append function.)
 
 

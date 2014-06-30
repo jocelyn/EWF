@@ -5,7 +5,7 @@ note
 			and can handle multiple users at the same time.
 			The server has just one protection space.
 			
-			See documentation.txt for documentation, which includes TODO list of references for the whole project.
+			See documentation.txt for documentation, which includes overview, TODO list and references for the whole project.
 		]"
 	date        : "$Date$"
 	revision    : "$Revision$"
@@ -53,12 +53,12 @@ feature {NONE} -- Initialization
 
 	initialize_digest_parameters
 		do
-				-- NONCE manager
+				-- Create nonce-manager with specified TTL for nonces.
 			create nonce_manager.make (10)
 
 				-- Set parameters.
 			server_qop := "auth"
-				-- We always use the same opaque value.
+				-- We always use the same opaque value, just as an example.
 			server_opaque := "5ccc069c403ebaf9f0171e9517f40e41"
 			server_algorithm := "MD5"
 			server_realm := "Enter password for DEMO"
@@ -209,8 +209,10 @@ feature -- Basic operations
 			page: WSF_HTML_PAGE_RESPONSE
 			u: like auth_username
 		do
-			io.put_string ("DEMO_HTTP_AUTHORIZATION.handle_other")
-			io.put_new_line
+			debug("demo_server")
+				io.put_string ("Handle other...%N")
+			end
+
 
 			u := auth_username (req)
 
@@ -389,11 +391,11 @@ feature -- Internal: Authentication
 				end
 			else
 				debug("demo_server")
-								io.put_string ("No authorization header.%N")
+					io.put_string ("No authorization header.%N")
 				end
 			end
 		ensure
-			req.http_authorization /= Void implies auth_username (req) /= Void xor auth_error_message (req) /= Void
+			lightweight_result_check: req.http_authorization /= Void implies (auth_username (req) /= Void xor auth_error_message (req) /= Void)
 		end
 
 	auth_error_message (req: WSF_REQUEST): detachable READABLE_STRING_8

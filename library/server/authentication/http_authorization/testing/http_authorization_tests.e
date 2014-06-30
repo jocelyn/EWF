@@ -19,7 +19,6 @@ feature -- Test routines
 			-- New test routine
 		local
 			l_auth: READABLE_STRING_8
-			u,p: detachable READABLE_STRING_32
 			h: HTTP_AUTHORIZATION
 		do
 			l_auth := "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
