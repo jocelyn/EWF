@@ -338,69 +338,69 @@ feature -- Status report
 
 						-- Check response.
 					if l_expected_response.same_string (l_digest.response) then
-						if l_digest.nc /= Void then
 
-								-- Check URI.
-								-- NOTE: The "request-uri" value is the Request-URI from the request line. This may be "*", an "absoluteURL" or and "abs_path",
-								-- but it MUST agree with the Request-URI.
-								-- If the URIs do not agree, the server SHOULD return a 400 Bad Request error (may be a symptom of an attacker,
-								-- therefore such events should be logged).
-								-- This is all because proxies may rewrite URIs. Since digest authentication checks the integrity of the URI value,
-								-- the digest authentication will break if any of these changes are made.
-							if a_server_uri.same_string_general (l_digest.uri) then
+							-- Check URI.
+							-- NOTE: The "request-uri" value is the Request-URI from the request line. This may be "*", an "absoluteURL" or and "abs_path",
+							-- but it MUST agree with the Request-URI.
+							-- If the URIs do not agree, the server SHOULD return a 400 Bad Request error (may be a symptom of an attacker,
+							-- therefore such events should be logged).
+							-- This is all because proxies may rewrite URIs. Since digest authentication checks the integrity of the URI value,
+							-- the digest authentication will break if any of these changes are made.
+							-- NOTE: We use the URI from the request line to compute the expected response, here, we compare this URI to the other one.
+						if a_server_uri.same_string_general (l_digest.uri) then
+							if l_digest.nc /= Void then
 
-									-- Check nonce-count.
-									-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
-									-- This way we can detect replays.
+										-- Check nonce-count.
+										-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
+										-- This way we can detect replays.
+									if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_digest.nonce) then
 
-								if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_digest.nonce) then
+											-- Set nonce-count to current value.
+										a_nonce_manager.set_nonce_count (l_digest.nonce, l_digest.nc_as_integer)
 
-										-- Set nonce-count to current value.
-									a_nonce_manager.set_nonce_count (l_digest.nonce, l_digest.nc_as_integer)
-
-										-- Check for staleness.
-									if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
-											-- Request has an invalid nonce, but a valid digest for that nonce.
-											-- This indicates that the client knows the correct credentials.
-											-- Hence, everything is fine, except that the nonce is stale.
-										stale := true
+											-- Check for staleness.
+										if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
+												-- Request has an invalid nonce, but a valid digest for that nonce.
+												-- This indicates that the client knows the correct credentials.
+												-- Hence, everything is fine, except that the nonce is stale.
+											stale := true
+										else
+												-- Passed all checks.
+											Result := true
+										end
 									else
-											-- Passed all checks.
-										Result := true
+										debug ("http_authorization")
+											io.putstring ("Expected nc: " + (a_nonce_manager.nonce_count (l_digest.nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
+										end
 									end
-								end
 							else
 								debug ("http_authorization")
-									io.putstring ("uri directive value does not agree with the request URI.%N")
+									io.putstring ("nonce-count not specified%N")
+								end
+
+									-- Recall: nonce-count MUST NOT be speified if the server did not send a qop directive in the
+									-- WWW-Authenticate header field.
+								check qop_void: a_server_qop = Void end
+
+									-- Check for staleness.
+								if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
+										-- Request has an invalid nonce, but a valid digest for that nonce.
+										-- This indicates that the client knows the correct credentials.
+										-- Hence, everything is fine, except that the nonce is stale.
+									stale := true
+								else
+										-- Passed all checks.
+									Result := true
 								end
 							end
 						else
 							debug ("http_authorization")
-								io.putstring ("nonce-count not specified%N")
-							end
-
-								-- Recall: nonce-count MUST NOT be speified if the server did not send a qop directive in the
-								-- WWW-Authenticate header field.
-							check qop_void: a_server_qop = Void end
-
-								-- Check for staleness.
-							if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
-									-- Request has an invalid nonce, but a valid digest for that nonce.
-									-- This indicates that the client knows the correct credentials.
-									-- Hence, everything is fine, except that the nonce is stale.
-								stale := true
-							else
-									-- Passed all checks.
-								Result := true
+								io.putstring ("URIs don't agree.%N")
 							end
 						end
 					else
 						debug ("http_authorization")
-							if not l_expected_response.same_string (l_digest.response) then
-								io.putstring ("Wrong response%N")
-							else
-								io.putstring ("Expected nc: " + (a_nonce_manager.nonce_count (l_digest.nonce) + 1).out + " or higher, actual: " + l_digest.nc_as_integer.out + "%N")
-							end
+							io.putstring ("Wrong response%N")
 						end
 					end
 				else
@@ -408,7 +408,8 @@ feature -- Status report
 						if not a_nonce_manager.nonce_exists (l_digest.nonce) then
 							io.put_string ("We don't know this nonce:%N   " + l_digest.nonce + ".%N")
 						elseif login = Void then
-							io.put_string ("ERROR: login not attached.%N")
+							io.put_string ("Login not attached.%N")
+							check not_allowed: False end
 						else
 							io.put_string ("Password not attached.%N")
 						end

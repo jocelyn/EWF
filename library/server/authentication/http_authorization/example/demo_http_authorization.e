@@ -74,9 +74,9 @@ feature -- Basic operations
 			l_authenticated_username: like auth_username
 		do
 				-- Get authentication information, if any.
-				-- NOTE: To access result, one could use `auth_username (req)'
 			process_authentication (req)
 
+				-- Access result.
 			l_authenticated_username := auth_username (req)
 
 				-- Decide whether authorization is needed.
@@ -84,7 +84,7 @@ feature -- Basic operations
 				if l_authenticated_username /= Void then
 					handle_login_authenticated (l_authenticated_username, req, res)
 				else
-						-- TODO Maybe the first part of the condition could be improved.
+						-- TODO Maybe the first part of the condition should be improved.
 					if (not (req.request_uri.has_substring ("auth=basic") or attached req.http_referer as l_ref and then l_ref.has_substring ("auth=basic"))) and (not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest"))) then
 						handle_unauthorized ("Please provide credential ...", "Digest", req, res)
 					else
@@ -95,7 +95,7 @@ feature -- Basic operations
 				if l_authenticated_username /= Void then
 					handle_restricted_authenticated (l_authenticated_username, req, res)
 				else
-						-- TODO Maybe the first part of the condition could be improved.
+						-- TODO Maybe the first part of the condition should be improved.
 					if (not (req.request_uri.has_substring ("auth=basic") or attached req.http_referer as l_ref and then l_ref.has_substring ("auth=basic"))) and (not attached req.http_authorization or (attached {STRING} req.execution_variable (auth_type_variable_name) as s_type and then s_type.is_case_insensitive_equal ("Digest"))) then
 						handle_unauthorized ("This page is restricted to authenticated user!", "Digest", req, res)
 					else
@@ -106,7 +106,8 @@ feature -- Basic operations
 					-- These areas can be accessed without authentication.
 
 					-- NOTE: The client could have sent an Authorization header for these areas,
-					-- even if this is not necessary.
+					-- even if this is not necessary (and he will do this, because we currently don't make use
+					-- of the domain directive, as this is ignored by many user agents anyway).
 					-- Therefore, we may miss some nonce-counts here.
 					-- Note that this is no problem (we don't even recognize it), as we only require
 					-- that the nonce-count is strictly increasing, but we allow some values to be skipped.

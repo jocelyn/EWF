@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <system xmlns="http://www.eiffel.com/developers/xml/configuration-1-12-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-12-0 http://www.eiffel.com/developers/xml/configuration-1-12-0.xsd" name="demo" uuid="9CB82EB8-CA38-44CD-9CC8-EBC56401BBB2">
 	<target name="demo">
-		<root class="DEMO_HTTP_AUTHORIZATION" feature="my_make"/>
+		<root class="TESTING" feature="test"/>
 		<file_rule>
 			<exclude>/EIFGENs$</exclude>
 			<exclude>/CVS$</exclude>
