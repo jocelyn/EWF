@@ -53,6 +53,12 @@ feature -- Tests
 				-- Standard
 			assert ("digest check : standard", check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", true, false, false))
 
+				-- Nonce replay
+			assert ("digest check: nonce replay", check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, false))
+
+				-- URI mismatch (implies wrong response in the first place)
+			assert ("digest check: URI mismatch", check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/wrong/%", algorithm=MD5, response=%"006507c9201068d1d42546f2b65bb7ba%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, false))
+
 				-- Wrong response
 			assert ("digest check : Wrong response", check_response_digest ("Digest username=%"geschke%", realm=%"LUG-Erding%", nonce=%"3E4qOR2IBAA=afd655f551e63c0f239f118842d2a0e002d92593%", uri=%"/digest/%", algorithm=MD5, response=%"00000000000000000000000000000000%", qop=auth, nc=00000001, cnonce=%"a5a3399a2aa0895c%"", false, false, false))
 
@@ -198,7 +204,7 @@ feature {NONE} -- Digest response
 				end
 			else
 				io.putstring ("This is not allowed to happen.")
-				check False end
+				check not_allowed: False end
 			end
 		end
 

@@ -171,14 +171,20 @@ feature -- access
 				-- Create result from this time.
 			if l_index <= 1 then
 					-- Wrong format. Set to unix timestamp 0.
+					-- NOTE: This should be fixed later (see TODO below).
+					-- Disregarding testing, we only use this function for our own nonces.
+					-- These nonces have the format we require.
+					-- For testing, it is very convenient to return zero at this poit.
+
+					-- TODO Add check wrong_format: False end
 				create l_http_date.make_from_timestamp (0)
 			else
 				l_time_string := l_decoded_nonce.substring (1, l_index - 1)
 				create l_http_date.make_from_string (l_time_string)
 
 				check
---					prefix_correct: l_decoded_nonce.starts_with (l_time_string)
---					result_object: l_time_string.same_string (l_http_date.debug_output)
+					prefix_correct: l_decoded_nonce.starts_with (l_time_string)
+					result_object: l_time_string.same_string (l_http_date.debug_output)
 				end
 			end
 
