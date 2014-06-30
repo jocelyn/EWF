@@ -34,7 +34,7 @@ feature {NONE} -- Initialization
 				-- Insert demo credentials.
 			user_manager.put_credentials ("eiffel", "world")
 			user_manager.put_credentials ("foo", "bar")
-			user_manager.put_credentials ("password", "user")
+			user_manager.put_credentials ("user", "password")
 			user_manager.put_credentials ("Circle Of Life", "Mufasa")
 
 				-- Set parameters.
