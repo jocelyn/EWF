@@ -19,12 +19,25 @@ inherit
 	SHARED_HTML_ENCODER
 
 create
-	my_make
+	make_and_launch
 
 feature {NONE} -- Initialization
 
-	my_make
+	initialize
+			-- Initialize current service.
 		do
+				-- Initialize data.
+			initialize_users
+			initialize_digest_parameters
+
+				-- Configure service.
+			set_service_option ("port", 9090)
+			set_service_option ("verbose", True)
+		end
+
+	initialize_users
+		do
+				-- User manager
 			create user_manager.make
 			create nonce_manager.make (10)
 
@@ -33,21 +46,18 @@ feature {NONE} -- Initialization
 			user_manager.put_credentials ("foo", "bar")
 			user_manager.put_credentials ("password", "user")
 			user_manager.put_credentials ("Circle Of Life", "Mufasa")
+		end
+
+	initialize_digest_parameters
+		do
+				-- NONCE manager
+			create nonce_manager.make (10)
 
 				-- Set parameters.
 			server_qop := "auth"
 			server_opaque := "5ccc069c403ebaf9f0171e9517f40e41"
 			server_algorithm := "MD5"
 			server_realm := "Enter password for DEMO"
-
-			make_and_launch
-		end
-
-	initialize
-			-- Initialize current service.
-		do
-			set_service_option ("port", 9090)
-			set_service_option ("verbose", True)
 		end
 
 feature -- Credentials
@@ -475,12 +485,6 @@ feature -- Helper
 	append_html_menu (a_username: detachable READABLE_STRING_8; req: WSF_REQUEST; s: STRING)
 			-- Append menu to `s'.
 			-- when an user is authenticated, `a_username' is attached.
-
-		local
-			l_home_url: STRING
-			l_public_url: STRING
-			l_protectede_url: STRING
-			l_account_url: STRING
 		do
 			io.putstring ("Appending html menu. Absolute url: " + req.absolute_script_url ("") + ", url: " + req.script_url ("") + "%N")
 
