@@ -12,7 +12,7 @@ TODO (Things that COULD, SHOULD or even MUST be done)
 	I only supported "auth" quality of protection.
 	You may want to consider "auth-int" too.
 * Algorithms
-	The most recent attacks on MD5 render it largely obsoloete. Specification [3] - which, if approved, obsoletes RFC 2617 - defines the following algorithms:
+	The most recent attacks on MD5 render it largely obsoloete. Specification [2] - which, if approved, obsoletes RFC 2617 - defines the following algorithms:
 		SHA-256 (mandatory to implement)
      		SHA-512/256 (backup)
      		MD5 (only for backward compatibility!)
@@ -24,4 +24,13 @@ TODO (Things that COULD, SHOULD or even MUST be done)
 * Interaction with shared caches / Cache-Control.
 * Proxy-Authentication and Proxy-Authorization
 
-	
+References
+--------------------------------------------------------
+I used the following references, sometimes even literal excerpts from
+
+[1] https://www.ietf.org/rfc/rfc2617.txt
+[2] http://tools.ietf.org/html/draft-ietf-httpauth-digest-07
+[3] http://tools.ietf.org/html/draft-ietf-httpbis-p7-auth-26
+[4] http://www.rfc-editor.org/rfc/rfc7235.txt // I did not read this one, it is from June 2014.
+[5] HTTP: The Definitive Guide, D.Gourley et al., September 2002
+[6] Professional Java for Web Applications, N. s. Williams, April 2014
