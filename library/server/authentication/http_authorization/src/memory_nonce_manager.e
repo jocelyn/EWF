@@ -88,7 +88,7 @@ feature -- element change
 			new_nonce: (old nonce_count_table.count) + 1 = nonce_count_table.count
 		end
 
-	add_nonce(a_nonce: STRING)
+	add_nonce (a_nonce: READABLE_STRING_8)
 			-- Stores new nonce `a_nonce' into `nonce_count_table', with a nonce-count value of 0.
 		require
 			unknown_nonce: not nonce_exists(a_nonce)
@@ -101,7 +101,7 @@ feature -- element change
 
 feature -- status report
 
-	nonce_exists (a_nonce: STRING): BOOLEAN
+	nonce_exists (a_nonce: READABLE_STRING_8): BOOLEAN
 			-- Is nonce `a_nonce' known?
 		do
 			Result := nonce_count_table.has (a_nonce)
@@ -109,16 +109,16 @@ feature -- status report
 			result_correct: Result = nonce_count_table.has (a_nonce)
 		end
 
-	is_nonce_stale (a_nonce: STRING): BOOLEAN
+	is_nonce_stale (a_nonce: READABLE_STRING_8): BOOLEAN
 			-- <Presursor>
 		local
-			l_http_date: HTTP_DATE
+			dt: DATE_TIME
 			l_duration: DATE_TIME_DURATION
 			age_in_seconds: INTEGER_64
 		do
-			l_http_date := time_from_nonce (a_nonce)
+			dt := time_from_nonce (a_nonce)
 
-			l_duration := (create {DATE_TIME}.make_now_utc).relative_duration(l_http_date.date_time)
+			l_duration := (create {DATE_TIME}.make_now_utc).relative_duration (dt)
 
 			age_in_seconds := l_duration.seconds_count
 
@@ -132,7 +132,7 @@ feature -- status report
 
 feature -- access
 
-	nonce_count (a_nonce: STRING): INTEGER
+	nonce_count (a_nonce: READABLE_STRING_8): INTEGER
 			-- Nonce-count associated with `a_nonce', or zero, if `a_nonce' is unknown.
 		do
 			Result := nonce_count_table.item (a_nonce)
@@ -140,13 +140,13 @@ feature -- access
 			result_correct: Result = nonce_count_table.item (a_nonce)
 		end
 
-	set_nonce_count (a_nonce: STRING; a_nonce_count: INTEGER)
+	set_nonce_count (a_nonce: READABLE_STRING_8; a_nonce_count: INTEGER)
 			-- Set nonce-count associated with `a_nonce' to `a_nonce_count'.
 		do
 			nonce_count_table.force (a_nonce_count, a_nonce)
 		end
 
-	time_from_nonce (a_nonce: STRING): HTTP_DATE
+	time_from_nonce (a_nonce: READABLE_STRING_8): DATE_TIME
 			-- Time encoded in `a_nonce'.
 		require
 			nonce_known: nonce_exists(a_nonce)
@@ -155,6 +155,7 @@ feature -- access
 			l_decoded_nonce: STRING
 			l_time_string: STRING
 			l_index: INTEGER
+			l_http_date: HTTP_DATE
 		do
 			create l_base_decoder
 
@@ -169,14 +170,15 @@ feature -- access
 			end
 
 				-- Create result from this time.
-			create Result.make_from_string (l_time_string)
-
+			create l_http_date.make_from_string (l_time_string)
 			check
 				prefix_correct: l_decoded_nonce.starts_with (l_time_string)
-				result_object: l_time_string.same_string (Result.debug_output)
+				result_object: l_time_string.same_string (l_http_date.debug_output)
 			end
-		end
 
+			Result := l_http_date.date_time
+		end
+		
 feature -- private key
 
 	private_key: INTEGER_32
