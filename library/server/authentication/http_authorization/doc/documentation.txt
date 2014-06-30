@@ -2,9 +2,9 @@ TODO (Things that COULD, SHOULD or even MUST be done)
 --------------------------------------------------------
 
 * Create nonce according to suggestion in RFC 2617
-* I chose to build strings using '+'. This is a trade-off. You could also use the append function.
+	Especially, use E-Tag.
 * Storing passwords
-	The server may store pairs consisting of username and H(A1).
+	The server may store pairs consisting of username and H(A1), which has obvious advantages.
 * Log invalid requests
 	If the request digest is invalid, then a login failure should be logged, since repeated login failures from a single client may indicate an attacker
 	attempting to guess passwords.
@@ -20,9 +20,16 @@ TODO (Things that COULD, SHOULD or even MUST be done)
 * uri
 	The server MUST assure that the resource designated by the "uri" diretive i sthe same as the resource specified in the Request-Line;
 	if they are not, the server SHOULD return a 400 Bad Request error.
-* Note that there are specifications which (could) obsolete RFC 2617.
+* Note that there are much newer specifications which (could or do) obsolete / update RFC 2617.
+* Nonce limitation
+	As can be seen im my comments, there are other ways to limit a nonce's use.
+	You may want to assign a nonce to a user etc.
+* User manager
+	Until now, the server allows a user to log in multiple times, without logging out before.
+	The server could keep track of logged-in users.
 * Interaction with shared caches / Cache-Control.
 * Proxy-Authentication and Proxy-Authorization
+* I chose to build strings using '+'. This is a trade-off. You may prefer using the append function.
 
 References
 --------------------------------------------------------
@@ -31,6 +38,6 @@ I used the following references, sometimes even literal excerpts from
 [1] https://www.ietf.org/rfc/rfc2617.txt
 [2] http://tools.ietf.org/html/draft-ietf-httpauth-digest-07
 [3] http://tools.ietf.org/html/draft-ietf-httpbis-p7-auth-26
-[4] http://www.rfc-editor.org/rfc/rfc7235.txt // I did not read this one, it is from June 2014.
+[4] http://www.rfc-editor.org/rfc/rfc7235.txt // I did not completely read this one, it is from June 2014.
 [5] HTTP: The Definitive Guide, D.Gourley et al., September 2002
 [6] Professional Java for Web Applications, N. s. Williams, April 2014
