@@ -7,7 +7,7 @@ deferred class
 feature -- access
 
 	password (a_user: STRING): detachable STRING
-			-- Returns password associated with `a_user', or Void, if `a_user' is unknown.
+			-- Ppassword associated with `a_user', or Void, if `a_user' is unknown.
 		deferred
 		ensure
 			voidness: user_exists (a_user) /= (Result = Void)

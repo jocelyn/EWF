@@ -150,8 +150,7 @@ invariant
 	response_not_empty: not response.is_empty
 	supported_qop: attached qop as l_qop implies l_qop.is_case_insensitive_equal ("auth")
 	supported_algorithm: attached algorithm as l_algorithm implies l_algorithm.is_case_insensitive_equal ("MD5")
-	qop_not_void: ((qop /= Void) = ((cnonce /= Void and nc /= Void)))
-	qop_void: ((qop = Void) = (cnonce = Void and nc = Void))
+	qop_not_void: ((qop /= Void) = ((cnonce /= Void and nc /= Void))) and ((qop = Void) = (cnonce = Void and nc = Void))
 	nc_positive: attached nc as l_nc implies l_nc.to_integer > 0
 
 end

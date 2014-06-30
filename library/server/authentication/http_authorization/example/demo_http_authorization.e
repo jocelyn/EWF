@@ -239,7 +239,7 @@ feature -- Basic operations
 			create page.make
 			page.set_status_code ({HTTP_STATUS_CODE}.unauthorized)
 			create values.make
-			if a_auth_type.is_case_insensitive_equal_general ("digest") then
+			if a_auth_type.is_case_insensitive_equal_general ("Digest") then
 					-- Digest
 
 					-- Create fresh nonce with nonce-count of zero.
@@ -248,8 +248,6 @@ feature -- Basic operations
 				new_nonce := nonce_manager.new_nonce
 
 					-- Create response.
-					-- NOTE: We don't specify the domain directive. Therefore, a user agent may assume that
-					-- all URIs on this server are in the protection space.
 				values.force ("Digest realm=%"" + server_realm +"%"")
 				values.force ("qop=%"" + server_qop + "%"")
 				values.force ("nonce=%"" + new_nonce + "%"")
@@ -276,8 +274,6 @@ feature -- Basic operations
 					-- of all URIs on the responding server.
 					--
 					-- NOTE: Unfortunately, most major user agents ingore this directive.
-	--				-- TODO Test with cURL. Firefox and Chrom just ignore this.
-	--			values.force ("domain=%"/login /protected%"")
 
 					-- Create header.
 					-- TODO Line continuation for better readability.
@@ -354,48 +350,37 @@ feature -- Internal: Authentication
 						req.set_execution_variable (auth_type_variable_name, "Digest")
 						if is_valid_authentication (auth, req) then
 							req.set_execution_variable (auth_username_variable_name, create {IMMUTABLE_STRING_8}.make_from_string (l_login))
-
-							if
-								attached user_manager.password (l_login) as l_pwd and then
-								attached auth.digest_data as l_digest_data and then
-								attached l_digest_data.nonce as l_nonce and then
-								nonce_manager.nonce_exists (l_nonce)
-							then
-									-- Set Authentication-Info.
-								l_authentication_info :=  auth.digest_authentication_info (user_manager, req.request_method)
-								req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
-							else
-								check not_allowed: False end
-							end
-
+								-- Set Authentication-Info.
+							l_authentication_info :=  auth.digest_authentication_info (user_manager, req.request_method)
+							req.set_execution_variable (auth_digest_authentication_info_variable_name, l_authentication_info)
 							debug("demo_server")
 								io.put_string ("Authorized: True.%N")
 								io.put_string ("Computed Authentication-Info%N")
 							end
 						else
 							req.set_execution_variable (auth_error_message_variable_name, "Invalid digest authentication for user %"" + l_login + "%"!")
-
 							debug("demo_server")
 								io.put_string ("Authorized: False.%N")
 								io.put_string ("Stale: " + auth.stale.out + "%N")
 							end
-
 							if auth.stale then
 								req.set_execution_variable (auth_digest_stale_variable_name, True)
 							end
 						end
 					else
-							--HTTP_AUTHORIZATION requires that this is a bed request.
+							-- Unsupported authentication method.
+							-- HTTP_AUTHORIZATION requires that this is a bad request.
 						check bad_request: auth.is_bad_request end
-						req.set_execution_variable (auth_error_message_variable_name, "Unsupported HTTP Authorization for user %"" + l_login + "%"!")
 					end
 				else
+						-- Missing username.
 						-- HTTP_AUTHORIZATION invariant prohibits this.
 					check login_attached: False end
-					req.set_execution_variable (auth_error_message_variable_name, "Missing username value!")
 				end
 			else
-				req.set_execution_variable (auth_error_message_variable_name, "No authentication.")
+				debug("demo_server")
+								io.put_string ("No authorization header.%N")
+				end
 			end
 		ensure
 			req.http_authorization /= Void implies auth_username (req) /= Void xor auth_error_message (req) /= Void
@@ -429,6 +414,8 @@ feature -- Internal: Authentication
 			-- Is authentication stale for request `req'.
 		do
 			Result := req.execution_variable (auth_digest_stale_variable_name) = True
+		ensure
+			Result = (req.execution_variable (auth_digest_stale_variable_name) = True)
 		end
 
 	auth_digest_authentication_info (req: WSF_REQUEST): detachable READABLE_STRING_8
@@ -482,20 +469,16 @@ feature -- Helper
 
 	append_html_menu (a_username: detachable READABLE_STRING_8; req: WSF_REQUEST; s: STRING)
 			-- Append menu to `s'.
-			-- when an user is authenticated, `a_username' is attached.
-
+			-- If an user is authenticated, `a_username' is attached.
 		local
 			l_home_url: STRING
 			l_public_url: STRING
 			l_protectede_url: STRING
 			l_account_url: STRING
 		do
-			io.putstring ("Appending html menu. Absolute url: " + req.absolute_script_url ("") + ", url: " + req.script_url ("") + "%N")
-
 			if a_username /= Void then
 				s.append ("<li><a href=%""+ req.absolute_script_url ("") +"%">Your account</a> (displayed only is user is authenticated!)</li>")
 			end
-
 			s.append ("<li><a href=%""+ req.absolute_script_url ("") +"%">home</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/public/area") +"%">public area</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/protected/area") +"%">protected area</a></li>")
@@ -504,8 +487,6 @@ feature -- Helper
 	append_html_login (req: WSF_REQUEST; s: STRING)
 			-- Append login link to `s'.
 		do
-			io.putstring ("Appending html login. Absolute url: " + req.absolute_script_url ("") + ", url: " + req.script_url ("/login") + "%N")
-
 			s.append ("<li><a href=%""+ req.script_url ("/login") +"?auth=basic%">sign in (with Basic auth)</a></li>")
 			s.append ("<li><a href=%""+ req.script_url ("/login") +"?auth=digest%">sign in (with Digest auth)</a></li>")
 		end
@@ -521,8 +502,6 @@ feature -- Helper
 			 	-- TODO logout porperly.
 			l_logout_url.replace_substring_all ("://", "://_@")
 			s.append ("<li><a href=%""+ l_logout_url +"%">logout</a></li>")
-
-			io.putstring ("Appending html logout. Absolute url: " + l_logout_url + "%N")
 		end
 
 	append_html_footer (req: WSF_REQUEST; s: STRING)

@@ -1,6 +1,6 @@
 note
 	description : "[
-			Object representing Authorization http header
+			Object representing http Authorization header.
 		]"
 	date: "$Date$"
 	revision: "$Revision$"
@@ -100,7 +100,6 @@ feature -- Initialization
 				create http_authorization.make_from_string ("Basic " + (create {BASE64}).encoded_string (utf.string_32_to_utf_8_string_8 (u + {STRING_32} ":" + p)))
 			elseif t.is_case_insensitive_equal (Digest_auth_type) then
 				type := Digest_auth_type
-
 					-- TODO
 				to_implement ("HTTP Authorization %""+ t +"%", not yet implemented")
 				create http_authorization.make_from_string ("Digest ...NOT IMPLEMENTED")
@@ -120,7 +119,7 @@ feature {NONE} -- Analyze
 			bad_request_message := a_msg
 		ensure
 			bad_request: is_bad_request
-			msg_set: (attached a_msg as l_msg and then attached bad_request_message as l_bad_msg and then l_msg.same_string_general(l_bad_msg)) or else a_msg = Void
+			msg_set: bad_request_message = a_msg
 		end
 
 	analyze_basic_auth (a_basic_auth: READABLE_STRING_8)
@@ -165,7 +164,6 @@ feature {NONE} -- Analyze
 			opaque_value: detachable READABLE_STRING_8
 			uri_value: detachable READABLE_STRING_8
 			algorithm_value: detachable READABLE_STRING_8
-			d: like digest_data
 			l_headers: like header_values
 		do
 				-- Try to parse the fields, and set them to the empty string if they didn't match our expectations.
@@ -205,7 +203,7 @@ feature {NONE} -- Analyze
 				not qop_value.is_case_insensitive_equal ("auth")
 			then
 					-- If the qop field is present, it has to be auth.
-					-- Other quality of protection is invalid or not yet supported.
+					-- Other quality of protection is invalid or has not been supported so far.
 				report_bad_request ("Illegal or unsupported qop: " + qop_value + "%N")
 				qop_value := empty_string_8
 			end
@@ -246,6 +244,8 @@ feature {NONE} -- Analyze
 					-- Until now, everything seems fine.
 					-- Apply further tests, and set `is_bad_request', if neccessary.
 
+				digest_data := Void
+
 					-- Check that all mandatory fields are actually attached.
 				if
 					login = Void
@@ -255,10 +255,15 @@ feature {NONE} -- Analyze
 					or response_value = Void
 				then
 					report_bad_request ("Mandatory field not attached.%N")
-					digest_data := Void
-				else
-						-- Initialize digest-data, and check digest requirements (invariant).
+				elseif
+						-- Tests from the HTTP_AUTHORIZATION_DIGEST_DATA.
+					((qop_value /= Void) = ((cnonce_value /= Void and nc_value /= Void))) and ((qop_value = Void) = (cnonce_value = Void and nc_value = Void))
+				then
+						-- Everything is ok, we can now initialize the digest-data.
 					create digest_data.make (realm_value, nonce_value, uri_value, response_value, nc_value, cnonce_value, qop_value, opaque_value, algorithm_value)
+				else
+						-- Bad request
+					report_bad_request ("Qop requirements not satisfied.%N")
 				end
 			end
 		end
@@ -266,14 +271,18 @@ feature {NONE} -- Analyze
 feature -- Access
 
 	http_authorization: IMMUTABLE_STRING_8
+		-- HTTP authorization string.
 
 	type: READABLE_STRING_8
+		-- Authentication type.
 
 feature -- Access: basic			
 
 	login: detachable READABLE_STRING_8
+		-- Username.
 
 	password: detachable READABLE_STRING_8
+		-- Password corresponding to `username'.
 
 feature -- Access: digest	
 
@@ -314,9 +323,7 @@ feature -- Status report
 				a_server_realm: READABLE_STRING_8; a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8;
 				a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8): BOOLEAN
 			-- Is digest authentication authorized?
-			--
-			-- Here we need the values which the server has sent in the WWW-Authenticate header.			--
-			-- URI may be changed by proxies. We take the one from the authorization-header.
+			-- Checks response, URI, staleness and nonce-count.
 		require
 			is_digest: is_digest
 			request_valid: not is_bad_request
@@ -346,18 +353,16 @@ feature -- Status report
 							-- therefore such events should be logged).
 							-- This is all because proxies may rewrite URIs. Since digest authentication checks the integrity of the URI value,
 							-- the digest authentication will break if any of these changes are made.
-							-- NOTE: We use the URI from the request line to compute the expected response, here, we compare this URI to the other one.
+							-- NOTE: We used the URI from the request line to compute the expected response, here, we compare this URI to the other one.
 						if a_server_uri.same_string_general (l_digest.uri) then
 							if l_digest.nc /= Void then
-
 										-- Check nonce-count.
 										-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
 										-- This way we can detect replays.
+										-- TODO Log such events.
 									if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_digest.nonce) then
-
 											-- Set nonce-count to current value.
 										a_nonce_manager.set_nonce_count (l_digest.nonce, l_digest.nc_as_integer)
-
 											-- Check for staleness.
 										if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
 												-- Request has an invalid nonce, but a valid digest for that nonce.
@@ -377,7 +382,6 @@ feature -- Status report
 								debug ("http_authorization")
 									io.putstring ("nonce-count not specified%N")
 								end
-
 									-- Recall: nonce-count MUST NOT be speified if the server did not send a qop directive in the
 									-- WWW-Authenticate header field.
 								check qop_void: a_server_qop = Void end
@@ -423,7 +427,8 @@ feature -- Status report
 			result_lightweight_check: Result implies
 					(
 						attached login as l_login and then
-						a_user_manager.user_exists (l_login)
+						a_user_manager.user_exists (l_login) and
+						attached digest_data as l_digest_data and then a_nonce_manager.nonce_exists (l_digest_data.nonce)
 					)
 		end
 
@@ -460,7 +465,7 @@ feature -- Status report
 			-- Message associated with `is_bad_request'.
 
 	stale: BOOLEAN
-			-- True if authorization was stale.
+			-- Is authorization stale?
 
 feature -- Access: digest
 
@@ -482,15 +487,12 @@ feature -- Access: digest
 				-- to pipeline multiple requests to the same server.
 				-- Since pipelining is expected to be a fundamental technology for latency avoidance,
 				-- the performance penalty may be large.
-
 			create Result.make_empty
 
 			if
 				attached digest_data as l_digest and then
 				attached login as l_login and then
-				attached a_user_manager.password (l_login) as l_password and then
-				attached l_digest.nonce as l_nonce and then
-				attached l_digest.realm as l_realm
+				attached a_user_manager.password (l_login) as l_password
 			then
 				create values.make
 
@@ -518,7 +520,7 @@ feature -- Access: digest
 					-- rspauth
 					-- Optional response-auth directive to support mutual authentication.
 					-- The server proves that it knows the user's secret.
-				ha1 := digest_hash_of_username_realm_and_password (l_login, l_realm, l_password, l_digest.algorithm, l_nonce)
+				ha1 := digest_hash_of_username_realm_and_password (l_login, l_digest.realm, l_password, l_digest.algorithm, l_digest.nonce)
 				ha2 := digest_hash_of_method_and_uri (a_request_method, l_digest.uri, l_digest.algorithm, l_digest.qop, True)
 				rspauth := digest_expected_response (ha1, ha2, l_digest.nonce, l_digest.qop, l_digest.algorithm, l_digest.nc, l_digest.cnonce)
 
@@ -641,7 +643,7 @@ feature -- Constants
 	Basic_auth_type: STRING_8 = "Basic"
 	Digest_auth_type: STRING_8 = "Digest"
 
--- TODO export to TESTING only
+		-- TODO export to TESTING only
 feature -- Implementation: Digest
 
 	digest_hash_of_username_realm_and_password (a_server_username: READABLE_STRING_8; a_server_realm: READABLE_STRING_8; a_server_password: READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_server_nonce: READABLE_STRING_8): STRING_8
@@ -652,7 +654,9 @@ feature -- Implementation: Digest
 			--    {HA1} = {MD5}({A1}) = {MD5}( {username} : {realm} : {password} )
 			--
  			-- If the algorithm directive's value is "MD5-sess", then HA1 is
-			--    {HA1} = {MD5}({A1}) = {MD5}({MD5}( {username} : {realm} : {password} ) : {nonce} : {cnonce} )			
+			--    {HA1} = {MD5}({A1}) = {MD5}({MD5}( {username} : {realm} : {password} ) : {nonce} : {cnonce} )		
+		require
+			supported_algorithm: a_server_algorithm /= Void implies a_server_algorithm.is_case_insensitive_equal_general ("MD5")
 		local
 			a1: STRING_8
 		do
@@ -668,13 +672,16 @@ feature -- Implementation: Digest
 	digest_hash_of_method_and_uri (a_server_method: READABLE_STRING_8; a_server_uri: READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; for_auth_info: BOOLEAN): STRING_8
 			-- Hash value of `a_server_method' , and `a_server_uri',
 			-- also known as HA2 in the related wikipedia page.
-			-- `for_auth_info' MUST be set to True if we compute the hash for the Authentication-Info header.
+			-- `for_auth_info' MUST be set to true if we compute the hash for the Authentication-Info header.
 			--
 			-- If the qop directive's value is "auth" or is unspecified, then HA2 is
 			--    {HA2} = {MD5}({A2}) = {MD5}( {method} : {digestURI} )
 			--
 			-- If the qop directive's value is "auth-int", then HA2 is
-			--    {HA2} = {MD5}({A2}) = {MD5}( {method} : {digestURI} :  {MD5}(entityBody)) 			
+			--    {HA2} = {MD5}({A2}) = {MD5}( {method} : {digestURI} :  {MD5}(entityBody))
+		require
+			supported_algorithm: a_server_algorithm /= Void implies a_server_algorithm.is_case_insensitive_equal_general ("MD5")
+			supported_qop: a_server_qop /= Void implies a_server_qop.is_case_insensitive_equal_general ("auth")
 		local
 			a2: READABLE_STRING_8
 		do
@@ -685,11 +692,10 @@ feature -- Implementation: Digest
 			else
 				a2 := a_server_method + ":" + a_server_uri
 			end
-
 			Result := md5_hash (a2)
 		end
 
-	digest_expected_response (ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; a_server_nonce: READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_8; a_cnonce: detachable READABLE_STRING_8) : STRING_8
+	digest_expected_response (ha1: READABLE_STRING_8; ha2: READABLE_STRING_8; a_server_nonce: READABLE_STRING_8; a_server_qop: detachable READABLE_STRING_8; a_server_algorithm: detachable READABLE_STRING_8; a_nc: detachable READABLE_STRING_8; a_cnonce: detachable READABLE_STRING_8) : STRING_8
 			-- Compute expected response.
 			-- Also known as response in the related wikipedia page.
 			--
@@ -697,7 +703,10 @@ feature -- Implementation: Digest
 			--    {response} = {MD5}( {HA1} : {nonce} : {nonceCount} : {clientNonce} : {qop} : {HA2} )
 			--
 			-- If the qop directive is unspecified, then compute the response as follows:
-			--    {response} = {MD5}( {HA1} : {nonce} : {HA2} ) 			
+			--    {response} = {MD5}( {HA1} : {nonce} : {HA2} ) 	
+		require
+			supported_algorithm: a_server_algorithm /= Void implies a_server_algorithm.is_case_insensitive_equal_general ("MD5")
+			supported_qop: a_server_qop /= Void implies a_server_qop.is_case_insensitive_equal_general ("auth")
 		local
 			unhashed_response: READABLE_STRING_8
 		do
@@ -706,11 +715,7 @@ feature -- Implementation: Digest
 			if a_server_qop /= Void then
 				if a_nc /= Void and a_cnonce /= Void then
 						-- Standard (for digest) computation of response.
-
-						-- TODO Every replace string "+" by append function.
-
 					unhashed_response := ha1 + ":" + a_server_nonce + ":" + a_nc + ":" + a_cnonce + ":" + a_server_qop + ":" + ha2
-
 					Result := md5_hash (unhashed_response)
 				else
 						-- This should be excluded by the invariant.
@@ -744,7 +749,7 @@ feature -- Helpers: hash, md5
 
 invariant
 	type_valid_or_bad_request: is_digest or else is_basic or else is_bad_request
-	is_valid_digest_or_bad_request: (is_digest and not is_bad_request) implies digest_data /= Void
-	is_valid_basic_or_bad_request: (is_basic and not is_bad_request) implies password /= Void
+	digest_valid_or_bad_request: (is_digest and not is_bad_request) implies digest_data /= Void
+	basic_valid_or_bad_request: (is_basic and not is_bad_request) implies password /= Void
 	login_attached_or_bad_request: (login = Void) implies is_bad_request
 end
