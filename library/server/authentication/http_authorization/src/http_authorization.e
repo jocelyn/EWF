@@ -339,24 +339,39 @@ feature -- Status report
 						-- Check response.
 					if l_expected_response.same_string (l_digest.response) then
 						if l_digest.nc /= Void then
-								-- Check nonce-count.
-								-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
-								-- This way we can detect replays.
 
-							if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_digest.nonce) then
+								-- Check URI.
+								-- NOTE: The "request-uri" value is the Request-URI from the request line. This may be "*", an "absoluteURL" or and "abs_path",
+								-- but it MUST agree with the Request-URI.
+								-- If the URIs do not agree, the server SHOULD return a 400 Bad Request error (may be a symptom of an attacker,
+								-- therefore such events should be logged).
+								-- This is all because proxies may rewrite URIs. Since digest authentication checks the integrity of the URI value,
+								-- the digest authentication will break if any of these changes are made.
+							if a_server_uri.same_string_general (l_digest.uri) then
 
-									-- Set nonce-count to current value.
-								a_nonce_manager.set_nonce_count (l_digest.nonce, l_digest.nc_as_integer)
+									-- Check nonce-count.
+									-- We require that the nonce-count is strictly greater than any nonce-count, which we have received for this nonce before.
+									-- This way we can detect replays.
 
-									-- Check for staleness.
-								if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
-										-- Request has an invalid nonce, but a valid digest for that nonce.
-										-- This indicates that the client knows the correct credentials.
-										-- Hence, everything is fine, except that the nonce is stale.
-									stale := true
-								else
-										-- Passed all checks.
-									Result := true
+								if l_digest.nc_as_integer > a_nonce_manager.nonce_count (l_digest.nonce) then
+
+										-- Set nonce-count to current value.
+									a_nonce_manager.set_nonce_count (l_digest.nonce, l_digest.nc_as_integer)
+
+										-- Check for staleness.
+									if a_nonce_manager.is_nonce_stale (l_digest.nonce) then
+											-- Request has an invalid nonce, but a valid digest for that nonce.
+											-- This indicates that the client knows the correct credentials.
+											-- Hence, everything is fine, except that the nonce is stale.
+										stale := true
+									else
+											-- Passed all checks.
+										Result := true
+									end
+								end
+							else
+								debug ("http_authorization")
+									io.putstring ("uri directive value does not agree with the request URI.%N")
 								end
 							end
 						else

@@ -16,7 +16,7 @@ create
 feature {NONE} -- Initialization
 
 	make (a_realm, a_nonce, a_uri, a_response: READABLE_STRING_8; a_nc, a_cnonce, a_qop, a_opaque, a_algorithm: detachable READABLE_STRING_8)
-		-- Initializie `current'.
+			-- Initializie `current'.
 			-- Also takes detachable arguments, in order to use the class invariant.
 		require
 			a_response_not_empty: not a_response.is_empty

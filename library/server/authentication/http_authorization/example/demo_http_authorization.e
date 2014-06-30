@@ -3,6 +3,8 @@ note
 			Simple application root class. 
 			Server which supports both basic and digest authentication,
 			and can handle multiple users at the same time.
+			
+			See documentation.txt for documentation, which includes TODO list of references for the whole project.
 		]"
 	date        : "$Date$"
 	revision    : "$Revision$"
@@ -36,6 +38,7 @@ feature {NONE} -- Initialization
 
 				-- Set parameters.
 			server_qop := "auth"
+				-- We always use the same opaque value.
 			server_opaque := "5ccc069c403ebaf9f0171e9517f40e41"
 			server_algorithm := "MD5"
 			server_realm := "Enter password for DEMO"
