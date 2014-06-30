@@ -148,6 +148,7 @@ feature -- access
 
 	time_from_nonce (a_nonce: READABLE_STRING_8): DATE_TIME
 			-- Time encoded in `a_nonce'.
+			-- If nonce does not have the required format, returns time corresponding to unix timestamp 0.
 		require
 			nonce_known: nonce_exists(a_nonce)
 		local
@@ -162,23 +163,30 @@ feature -- access
 				-- Read the time from the nonce.
 			l_decoded_nonce := l_base_decoder.decoded_string (a_nonce)
 			l_index := l_decoded_nonce.last_index_of (':', l_decoded_nonce.count)
-			l_time_string := l_decoded_nonce.substring (1, l_index - 1)
 
 			debug("memory_nonce_manager")
 				io.put_string ("Index: " + l_index.out + "%N")
-				io.put_string ("Time string: " + l_time_string + "%N")
 			end
 
 				-- Create result from this time.
-			create l_http_date.make_from_string (l_time_string)
-			check
-				prefix_correct: l_decoded_nonce.starts_with (l_time_string)
-				result_object: l_time_string.same_string (l_http_date.debug_output)
+			if l_index <= 1 then
+					-- Wrong format. Set to unix timestamp 0.
+				create l_http_date.make_from_timestamp (0)
+			else
+				l_time_string := l_decoded_nonce.substring (1, l_index - 1)
+				create l_http_date.make_from_string (l_time_string)
+
+				check
+--					prefix_correct: l_decoded_nonce.starts_with (l_time_string)
+--					result_object: l_time_string.same_string (l_http_date.debug_output)
+				end
 			end
 
 			Result := l_http_date.date_time
+
+			io.putstring ("Time from nonce: " + Result.out + "%N")
 		end
-		
+
 feature -- private key
 
 	private_key: INTEGER_32

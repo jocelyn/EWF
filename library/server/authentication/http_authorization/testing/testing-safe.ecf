@@ -13,7 +13,12 @@
 		<setting name="concurrency" value="none"/>
 		<library name="base" location="$ISE_LIBRARY\library\base\base-safe.ecf"/>
 		<library name="encoder" location="..\..\..\..\text\encoder\encoder-safe.ecf"/>
-		<library name="http_authorization" location="..\http_authorization-safe.ecf" readonly="false" use_application_options="true"/>
+		<library name="http_authorization" location="..\http_authorization-safe.ecf" readonly="false" use_application_options="true">
+			<option debug="true">
+				<debug name="http_authorization" enabled="true"/>
+				<debug name="memory_nonce_manager" enabled="true"/>
+			</option>
+		</library>
 		<library name="testing" location="$ISE_LIBRARY\library\testing\testing-safe.ecf"/>
 		<tests name="tests" location=".\" recursive="true"/>
 	</target>

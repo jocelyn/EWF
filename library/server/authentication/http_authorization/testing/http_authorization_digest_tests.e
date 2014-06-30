@@ -29,6 +29,7 @@ feature {NONE} -- Preparation
 
 				-- Init constants.
 			http_method := "GET"
+
 		end
 
 feature -- Managers
