@@ -3,6 +3,7 @@ note
 			Simple application root class. 
 			Server which supports both basic and digest authentication,
 			and can handle multiple users at the same time.
+			The server has just one protection space.
 			
 			See documentation.txt for documentation, which includes TODO list of references for the whole project.
 		]"
@@ -144,7 +145,7 @@ feature -- Basic operations
 
 			create page.make
 
-				-- We always want the Authentication-Info header for digest.
+				-- We always want the Authentication-Info header for digest, to communicate successful authentication.
 			if attached auth_digest_authentication_info (req) as l_info then
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			else
@@ -180,10 +181,11 @@ feature -- Basic operations
 			append_html_menu (a_authenticated_username, req, s)
 			append_html_footer (req, s)
 
+			-- We always want the Authentication-Info header for digest, to communicate successful authentication.
 			if attached auth_digest_authentication_info (req) as l_info then
 				page.header.put_header_key_value ({HTTP_HEADER_NAMES}.header_authentication_info, l_info)
 			else
-				check no_auth_info: False end
+				check is_basic: attached auth_type (req) as l_type and then l_type.is_case_insensitive_equal ("Basic") end
 			end
 
 			page.set_body (s)
@@ -246,6 +248,8 @@ feature -- Basic operations
 				new_nonce := nonce_manager.new_nonce
 
 					-- Create response.
+					-- NOTE: We don't specify the domain directive. Therefore, a user agent may assume that
+					-- all URIs on this server are in the protection space.
 				values.force ("Digest realm=%"" + server_realm +"%"")
 				values.force ("qop=%"" + server_qop + "%"")
 				values.force ("nonce=%"" + new_nonce + "%"")
