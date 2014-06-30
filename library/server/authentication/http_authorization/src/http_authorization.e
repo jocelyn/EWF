@@ -226,6 +226,7 @@ feature {NONE} -- Analyze
 				nc_value /= Void and then
 				(
 					nc_value.count /= 8 or
+					not nc_value.is_integer or else
 					nc_value.to_integer < 0
 				)
 			then

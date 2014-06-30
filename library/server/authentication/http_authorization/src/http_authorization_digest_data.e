@@ -78,7 +78,7 @@ feature -- Access
 	nc_as_integer: INTEGER
 			-- Returns integer value of `nc'.
 		require
-			nc_attached: attached nc
+			nc_attached: nc /= Void
 		do
 			if attached nc as l_nc then
 				Result := l_nc.to_integer
@@ -151,6 +151,5 @@ invariant
 	supported_qop: attached qop as l_qop implies l_qop.is_case_insensitive_equal ("auth")
 	supported_algorithm: attached algorithm as l_algorithm implies l_algorithm.is_case_insensitive_equal ("MD5")
 	qop_not_void: ((qop /= Void) = ((cnonce /= Void and nc /= Void))) and ((qop = Void) = (cnonce = Void and nc = Void))
-	nc_positive: attached nc as l_nc implies l_nc.to_integer > 0
-
+	nc_positive: attached nc as l_nc implies l_nc.is_integer and then l_nc.to_integer > 0
 end

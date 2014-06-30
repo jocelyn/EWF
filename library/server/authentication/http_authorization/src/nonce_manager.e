@@ -43,7 +43,7 @@ feature -- status report
 		end
 
 	is_nonce_stale (a_nonce: STRING): BOOLEAN
-			-- Returns true, if nonce has expired, i.e., is older than `time_to_live'.			
+			-- True, if nonce has expired, i.e., is older than `time_to_live'.			
 			-- The server is free to construct the nonce such that it may only be used
 			-- from a particular client, for a particular resource, for a limited period of time or number of uses,
 			-- or any other restrictions.
@@ -52,5 +52,5 @@ feature -- status report
 			nonce_known: nonce_exists (a_nonce)
 		deferred
 		end
-
+		
 end

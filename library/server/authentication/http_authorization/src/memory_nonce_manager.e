@@ -40,8 +40,9 @@ feature {NONE} -- data
 feature {NONE} -- nonce creation
 
 	new_nonce_value: STRING_8
-			-- Create a fresh nonce in the following format:
+			-- Create a fresh nonce in the following format
 			--		Base64(timeStamp : MD5(timeStamp : privateKey))
+			-- and return it.
 			-- This format allows the server to reject a request if the time-stamp value is not recent enough, i.e.,
 			-- the server can limit the time of the nonce's validity.
 			-- TODO Create nonce according to suggestion in RFC 2617
@@ -67,10 +68,6 @@ feature {NONE} -- nonce creation
 			Result.prepend (http_time.string + ":")
 
 			Result := base64_encoder.encoded_string (Result)
-
-			debug("memory_nonce_manager")
-				io.put_string ("Nonce before encoding: " + Result + "%N")
-			end
 		end
 
 feature -- element change
@@ -88,48 +85,19 @@ feature -- element change
 			Result := l_nonce
 		ensure
 			not_empty: not Result.is_empty
-			added: (old nonce_count_table.count) + 1 = nonce_count_table.count
+			new_nonce: (old nonce_count_table.count) + 1 = nonce_count_table.count
 		end
 
 	add_nonce(a_nonce: STRING)
-			-- Creates new nonce `a_nonce' and stores it into `nonce_count_table', with a nonce-count value of 0.
+			-- Stores new nonce `a_nonce' into `nonce_count_table', with a nonce-count value of 0.
 		require
 			unknown_nonce: not nonce_exists(a_nonce)
 		do
-
 			nonce_count_table.force (0, a_nonce)
 		ensure
 			added: nonce_exists (a_nonce)
 			nc_zero: nonce_count (a_nonce) = 0
 		end
-
---	increment_nonce_count (a_nonce: STRING)
---			-- Increment nonce-count associated with `user'.
---		require
---			nonce_known: nonce_exists (a_nonce)
---		local
---			l_nc: INTEGER
---		do
---			l_nc := nonce_count_table.item (a_nonce)
-
-
---			debug ("user-manager")
---				io.putstring ("Old nonce-count: " + l_nc.out + "%N")
---			end
-
-
---			l_nc := l_nc + 1
-
-
---			debug ("user-manager")
---				io.putstring ("New nonce-count: " + l_nc.out + "%N")
---			end
-
---			nonce_count_table.force (l_nc, a_nonce)
---		ensure
---				-- FIXME
---			incremented: (old nonce_count_table).item (a_nonce) = nonce_count_table.item (a_nonce) + 1
---		end
 
 feature -- status report
 
@@ -138,11 +106,11 @@ feature -- status report
 		do
 			Result := nonce_count_table.has (a_nonce)
 		ensure then
-			result_correct: (Result implies nonce_count_table.has (a_nonce)) and (not Result implies not nonce_count_table.has (a_nonce))
+			result_correct: Result = nonce_count_table.has (a_nonce)
 		end
 
 	is_nonce_stale (a_nonce: STRING): BOOLEAN
-			-- True, if nonce exists and has expired, i.e., is older than `time_to_live'.
+			-- <Presursor>
 		local
 			l_http_date: HTTP_DATE
 			l_duration: DATE_TIME_DURATION
@@ -168,6 +136,8 @@ feature -- access
 			-- Nonce-count associated with `a_nonce', or zero, if `a_nonce' is unknown.
 		do
 			Result := nonce_count_table.item (a_nonce)
+		ensure then
+			result_correct: Result = nonce_count_table.item (a_nonce)
 		end
 
 	set_nonce_count (a_nonce: STRING; a_nonce_count: INTEGER)
@@ -189,11 +159,8 @@ feature -- access
 			create l_base_decoder
 
 				-- Read the time from the nonce.
-
 			l_decoded_nonce := l_base_decoder.decoded_string (a_nonce)
-
 			l_index := l_decoded_nonce.last_index_of (':', l_decoded_nonce.count)
-
 			l_time_string := l_decoded_nonce.substring (1, l_index - 1)
 
 			debug("memory_nonce_manager")
@@ -202,7 +169,6 @@ feature -- access
 			end
 
 				-- Create result from this time.
-
 			create Result.make_from_string (l_time_string)
 
 			check
@@ -210,7 +176,6 @@ feature -- access
 				result_object: l_time_string.same_string (Result.debug_output)
 			end
 		end
-
 
 feature -- private key
 
@@ -229,9 +194,7 @@ feature -- private key
       		l_seed := l_seed * 1000 + l_time.milli_second
 
       		create random_int.set_seed (l_seed)
-
 			random_int.forth
-
 			Result := random_int.item
 
 			debug("memory_nonce_manager")
@@ -239,7 +202,4 @@ feature -- private key
 			end
 		end
 
-
-invariant
-	-- TODO
 end

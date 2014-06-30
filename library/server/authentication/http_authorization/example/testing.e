@@ -155,9 +155,6 @@ feature -- Tests
 			check
 				stale: nonce_manager.is_nonce_stale (l_nonce)
 			end
-
-				-- TODO Test nonce-count replays
---			nonce_manager.set_nonce_count(l_nonce, 1)
 		end
 
 	user_manager_check
@@ -201,7 +198,6 @@ feature -- Tests
 				not ((create {BASE64}).decoded_string ("Arbitrary")).same_string("eiffel:world")
 			end
 		end
-
 
 feature -- Digest response
 
