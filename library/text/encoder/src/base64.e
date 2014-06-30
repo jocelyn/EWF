@@ -125,17 +125,17 @@ feature -- Decoder
 				byte_count := 0
 
 				pos := next_encoded_character_position (v, pos)
-				if pos <= n then
+				if pos < n then
 					byte1 := base64chars.index_of (v[pos], 1) - 1
 					byte_count := byte_count + 1
 
 					pos := next_encoded_character_position (v, pos)
-					if pos <= n then
+					if pos < n then
 						byte2 := base64chars.index_of (v[pos], 1) - 1
 						byte_count := byte_count + 1
 
 						pos := next_encoded_character_position (v, pos)
-						if pos <= n then
+						if pos < n then
 							c := v[pos]
 							if c /= '=' then
 								byte3 := base64chars.index_of (c, 1) - 1
