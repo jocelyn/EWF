@@ -17,8 +17,8 @@ feature {NONE} -- Initialization
 
 	make (a_service: like service)
 		local
-			cfg: HTTPD_CONFIGURATION
-			fac: WGI_NINO_REQUEST_HANDLER_FACTORY
+--			cfg: detachable HTTPD_CONFIGURATION
+			fac: separate WGI_NINO_REQUEST_HANDLER_FACTORY
 		do
 			service := a_service
 
@@ -26,9 +26,9 @@ feature {NONE} -- Initialization
 			create on_launched_actions
 			create on_stopped_actions
 
-			create cfg.make
+--			create cfg.make
 			create fac.make (Current)
-			create server.make (cfg, fac)
+			create server.make (fac)
 		end
 
 	make_with_base (a_service: like service; a_base: like base)
@@ -47,18 +47,23 @@ feature -- Access
 	version: STRING_8 = "0.1"
 			-- Version of Current connector
 
-feature {WGI_NINO_CONNECTION_HANDLER} -- Access
+feature {WGI_NINO_REQUEST_HANDLER} -- Access
 
 	service: WGI_SERVICE
 			-- Gateway Service		
 
 feature -- Access
 
-	server: HTTPD_SERVER
+	server: separate HTTPD_SERVER
 
-	configuration: HTTPD_CONFIGURATION
+	configuration: separate HTTPD_CONFIGURATION
 		do
-			Result := server.configuration
+			Result := separate_server_configuration (server)
+		end
+
+	separate_server_configuration (a_server: like server): separate HTTPD_CONFIGURATION
+		do
+			Result := a_server.configuration
 		end
 
 feature -- Access
@@ -85,10 +90,10 @@ feature -- Callbacks
 
 feature -- Execution
 
-	execute (req: WGI_REQUEST; res: WGI_RESPONSE)
+	execution (req: separate WGI_REQUEST; res: separate WGI_RESPONSE): separate WGI_REQUEST_EXECUTION
 		do
-			service.execute (req, res)
-			res.push
+			Result := service.execution (req, res)
+			--			res.push!!!
 		end
 
 feature -- Element change
@@ -123,18 +128,28 @@ feature -- Element change
 feature -- Server
 
 	launch
-		local
+--		local
 --			l_http_handler : HTTP_CONNECTION_HANDLER
 		do
 			launched := False
 			port := 0
 --			create {WGI_NINO_HANDLER} l_http_handler.make_with_callback (server, Current)
-			if configuration.is_verbose then
+			if separate_configuration_is_verbose (configuration) then
 				if attached base as l_base then
 					io.error.put_string ("Base=" + l_base + "%N")
 				end
 			end
-			server.launch
+			separate_server_launch (server)
+		end
+
+	separate_configuration_is_verbose (a_config: like configuration): BOOLEAN
+		do
+			Result := a_config.is_verbose
+		end
+
+	separate_server_launch (a_server: like server)
+		do
+			a_server.launch
 		end
 
 --	process_request (env: STRING_TABLE [READABLE_STRING_8]; a_headers_text: STRING; a_socket: HTTP_STREAM_SOCKET)

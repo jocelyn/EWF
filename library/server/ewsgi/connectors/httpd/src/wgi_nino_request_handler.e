@@ -1,11 +1,11 @@
 note
-	description: "Summary description for {WGI_NINO_CONNECTION_HANDLER}."
+	description: "Summary description for {WGI_NINO_REQUEST_HANDLER}."
 	author: ""
 	date: "$Date$"
 	revision: "$Revision$"
 
 class
-	WGI_NINO_CONNECTION_HANDLER
+	WGI_NINO_REQUEST_HANDLER
 
 inherit
 	HTTPD_REQUEST_HANDLER
@@ -23,11 +23,15 @@ feature {NONE} -- Initialization
 	make (conn: like connector)
 		do
 			connector := conn
-			base := conn.base
+			if attached conn.base as s then
+				create {STRING_8} base.make_from_separate (s)
+			else
+				base := Void
+			end
 			make_handler
 		end
 
-	connector: WGI_NINO_CONNECTOR
+	connector: separate WGI_NINO_CONNECTOR
 
 	base: detachable READABLE_STRING_8
 
@@ -154,18 +158,31 @@ feature -- Request processing
 			req: WGI_REQUEST_FROM_TABLE
 			res: detachable WGI_NINO_RESPONSE_STREAM
 			retried: BOOLEAN
+			l_execution: like separate_connector_execution
 		do
 			if not retried then
 				create req.make (env, create {WGI_NINO_INPUT_STREAM}.make (a_socket), connector)
 				create res.make (create {WGI_NINO_OUTPUT_STREAM}.make (a_socket), create {WGI_NINO_ERROR_STREAM}.make_stderr (a_socket.descriptor.out))
 				req.set_meta_string_variable ("RAW_HEADER_DATA", a_headers_text)
-				connector.execute (req, res)
+
+				l_execution := separate_connector_execution (connector, req, res)
+				separate_request_execution (l_execution)
 			end
 		rescue
 			if not retried then
 				retried := True
 				retry
 			end
+		end
+
+	separate_connector_execution (conn: like connector; req: separate WGI_REQUEST_FROM_TABLE; res: separate WGI_NINO_RESPONSE_STREAM): separate WGI_REQUEST_EXECUTION
+		do
+			Result := conn.execution (req, res)
+		end
+
+	separate_request_execution (a_req_execution: separate WGI_REQUEST_EXECUTION)
+		do
+			a_req_execution.execute
 		end
 
 	add_environment_variable (a_value: detachable STRING; a_var_name: READABLE_STRING_GENERAL; env: STRING_TABLE [READABLE_STRING_8])

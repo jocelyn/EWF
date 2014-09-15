@@ -23,6 +23,11 @@ feature {NONE} -- Initialization
 			version := Void
 			remote_info := Void
 
+--			if attached client_socket as l_sock then
+--				l_sock.cleanup
+--			end
+--			client_socket := Void
+
 				-- FIXME: optimize to just wipe_out if needed
 			create method.make_empty
 			create uri.make_empty
@@ -32,16 +37,13 @@ feature {NONE} -- Initialization
 
 feature -- Access
 
-	is_verbose: BOOLEAN
+--	client_socket: detachable TCP_STREAM_SOCKET
 
 	request_header: STRING
 			-- Header' source
 
 	request_header_map: HASH_TABLE [STRING, STRING]
 			-- Contains key:value of the header
-
-	has_error: BOOLEAN
-			-- Error occurred during `analyze_request_message'
 
 	method: STRING
 			-- http verb
@@ -56,7 +58,26 @@ feature -- Access
 	remote_info: detachable TUPLE [addr: STRING; hostname: STRING; port: INTEGER]
 			-- Information related to remote client
 
+feature -- Settings	
+
+	is_verbose: BOOLEAN
+
+feature -- Status report
+
+	has_error: BOOLEAN
+			-- Error occurred during `analyze_request_message'
+
 feature -- Change
+
+--	set_client_socket (a_socket: separate TCP_STREAM_SOCKET)
+--		require
+--			socket_attached: a_socket /= Void
+--			socket_valid: a_socket.is_open_read and then a_socket.is_open_write
+--			a_http_socket: not a_socket.is_closed
+--		deferred
+--		ensure
+--			attached client_socket as s implies s.descriptor = a_socket.descriptor
+--		end
 
 	set_is_verbose (b: BOOLEAN)
 		do
@@ -111,7 +132,7 @@ feature -- Execution
 		            dbglog (generator + ".LEAVE execute {" + a_socket.descriptor.out + "}")
 	            end
 			end
-            release (a_socket)
+--            release (a_socket)
 		end
 
 	release (a_socket: HTTPD_STREAM_SOCKET)

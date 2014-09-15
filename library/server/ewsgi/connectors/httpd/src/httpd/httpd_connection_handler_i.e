@@ -15,7 +15,7 @@ feature {NONE} -- Initialization
 	frozen make (a_server: like server)
 		do
 			server := a_server
-			factory := a_server.factory
+			factory := separate_factory (a_server)
 			initialize
 		end
 
@@ -23,11 +23,18 @@ feature {NONE} -- Initialization
 		deferred
 		end
 
+	separate_factory (a_server: like server): like factory
+			-- Separate factory from `a_server'.
+			--| required by SCOOP design.
+		do
+			Result := a_server.factory
+		end
+
 feature {NONE} -- Access
 
-	factory: HTTPD_REQUEST_HANDLER_FACTORY
+	factory: separate HTTPD_REQUEST_HANDLER_FACTORY
 
-	server: HTTPD_SERVER_I
+	server: separate HTTPD_SERVER_I
 
 feature {HTTPD_SERVER_I} -- Execution
 
@@ -52,11 +59,16 @@ feature {HTTPD_SERVER} -- Status report
 
 feature {NONE} -- Output
 
-	log (a_message: READABLE_STRING_8)
+	log (a_message: separate READABLE_STRING_8)
 			-- Log `a_message'
 		do
 				-- FIXME: Concurrency issue on `server'
-			server.log (a_message)
+			separate_server_log (server, a_message)
+		end
+
+	separate_server_log (a_server: like server; a_message: separate READABLE_STRING_8)
+		do
+			a_server.log (a_message)
 		end
 
 note

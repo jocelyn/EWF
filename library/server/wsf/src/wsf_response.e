@@ -30,7 +30,7 @@ convert
 
 feature {NONE} -- Initialization
 
-	make_from_wgi (r: WGI_RESPONSE)
+	make_from_wgi (r: like wgi_response)
 		local
 			wres: detachable WSF_WGI_DELAYED_HEADER_RESPONSE
 		do
@@ -59,7 +59,7 @@ feature {NONE} -- Initialization
 
 feature {WSF_RESPONSE, WSF_RESPONSE_EXPORTER} -- Properties		
 
-	wgi_response: WGI_RESPONSE
+	wgi_response: separate WGI_RESPONSE
 			-- Associated WGI_RESPONSE.
 
 	internal_header: WSF_HEADER
@@ -512,7 +512,12 @@ feature -- Error reporting
 			-- Report error described by `a_message'
 			-- This might be used by the underlying connector
 		do
-			wgi_response.put_error (a_message)
+			separate_put_error_to_wgi (a_message, wgi_response)
+		end
+
+	separate_put_error_to_wgi (a_message: separate READABLE_STRING_8; res: like wgi_response)
+		do
+			res.put_error (a_message)
 		end
 
 note

@@ -13,17 +13,19 @@ inherit
 
 feature {NONE} -- Initialization
 
-	make (a_cfg: detachable like configuration; a_factory: like factory)
+	make (a_factory: like factory)
 			-- `a_cfg': server configuration
 			-- `a_factory': connection handler builder
 		do
-			factory := a_factory
+			make_configured (create {like configuration}.make, a_factory)
+		end
 
-			if a_cfg = Void then
-				create configuration.make
-			else
-				configuration := a_cfg
-			end
+	make_configured (a_cfg: like configuration; a_factory: like factory)
+			-- `a_cfg': server configuration
+			-- `a_factory': connection handler builder
+		do
+			configuration := a_cfg
+			factory := a_factory
 
 			build_controller
 
@@ -50,9 +52,9 @@ feature	-- Access
 	configuration: HTTPD_CONFIGURATION
 			-- Associated server configuration.
 
-	controller: HTTPD_CONTROLLER
+	controller: separate HTTPD_CONTROLLER
 
-	factory: HTTPD_REQUEST_HANDLER_FACTORY
+	factory: separate HTTPD_REQUEST_HANDLER_FACTORY
 
 feature -- Access: listening
 
@@ -173,7 +175,7 @@ feature -- Listening
 							debug ("dbglog")
 								dbglog (generator + ".before process_incoming_connection {" + l_accepted_socket.descriptor.out + "}" )
 							end
-							process_incoming_connection (l_accepted_socket, l_connection_handler)
+							l_connection_handler.process_incoming_connection (l_accepted_socket)
 							debug ("dbglog")
 								dbglog (generator + ".after process_incoming_connection {" + l_accepted_socket.descriptor.out + "}")
 							end
@@ -230,11 +232,6 @@ feature {NONE} -- Helpers
 			end
 		end
 
-	process_incoming_connection (a_socket: HTTPD_STREAM_SOCKET; a_connection_handler: HTTPD_CONNECTION_HANDLER)
-		do
-			a_connection_handler.process_incoming_connection (a_socket)
-		end
-
 	update_is_shutdown_requested (a_connection_handler: HTTPD_CONNECTION_HANDLER)
 		do
 			is_shutdown_requested := is_shutdown_requested or shutdown_requested (controller)
@@ -243,7 +240,7 @@ feature {NONE} -- Helpers
 			end
 		end
 
-	shutdown_requested (a_controller: HTTPD_CONTROLLER): BOOLEAN
+	shutdown_requested (a_controller: separate HTTPD_CONTROLLER): BOOLEAN
 			-- Shutdown requested on concurrent `a_controller'?
 		do
 			Result := a_controller.shutdown_requested
@@ -291,14 +288,17 @@ feature -- Output
 			output := f
 		end
 
-	log (a_message: READABLE_STRING_8)
+	log (a_message: separate READABLE_STRING_8)
 			-- Log `a_message'
+		local
+			m: STRING
 		do
+			create m.make_from_separate (a_message)
 			if attached output as o then
-				o.put_string (a_message)
+				o.put_string (m)
 				o.put_new_line
 			else
-				io.error.put_string (a_message)
+				io.error.put_string (m)
 				io.error.put_new_line
 			end
 		end

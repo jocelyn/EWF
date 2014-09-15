@@ -1,20 +1,26 @@
 note
-	description: "Summary description for {HTTPD_REQUEST_HANDLER_FACTORY_I}."
+	description: "Summary description for {WSF_REQUEST_EXECUTION}."
 	author: ""
 	date: "$Date$"
 	revision: "$Revision$"
 
 deferred class
-	HTTPD_REQUEST_HANDLER_FACTORY_I
+	WSF_REQUEST_EXECUTION
 
-feature -- Factory
+feature -- Access
 
-	new_handler: separate HTTPD_REQUEST_HANDLER
+	request: WSF_REQUEST
+
+	response: WSF_RESPONSE
+
+feature -- Execution
+
+	execute
 		deferred
 		end
 
 note
-	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

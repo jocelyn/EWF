@@ -1,34 +1,36 @@
 note
-	description: "Summary description for {WGI_NINO_REQUEST_HANDLER_FACTORY}."
+	description: "Summary description for {WGI_REQUEST_AGENT_EXECUTION}."
 	author: ""
 	date: "$Date$"
 	revision: "$Revision$"
 
 class
-	WGI_NINO_REQUEST_HANDLER_FACTORY
+	WGI_REQUEST_AGENT_EXECUTION
 
 inherit
-	HTTPD_REQUEST_HANDLER_FACTORY
+	WGI_REQUEST_EXECUTION
 
 create
 	make
 
 feature {NONE} -- Initialization
 
-	make (conn: like connector)
+	make (agt: like procedure; a_request: like request; a_response: like response)
 		do
-			connector := conn
+			request := a_request
+			response := a_response
+			procedure := agt
 		end
 
-feature -- Access
+feature {NONE} -- Access
 
-	connector: separate WGI_NINO_CONNECTOR
+	procedure: PROCEDURE [ANY, TUPLE [like request, like response]]
 
-feature -- Factory
+feature -- Execution
 
-	new_handler: separate WGI_NINO_REQUEST_HANDLER
+	execute
 		do
-			create Result.make (connector)
+			procedure.call ([request, response])
 		end
 
 note

@@ -59,7 +59,7 @@ feature {HTTPD_SERVER_I} -- Execution
 			end
 		end
 
-	process_connection_handler (hdl: HTTPD_REQUEST_HANDLER; a_socket: HTTPD_STREAM_SOCKET)
+	process_connection_handler (hdl: separate HTTPD_REQUEST_HANDLER; a_socket: HTTPD_STREAM_SOCKET)
 		require
 			not hdl.has_error
 		do

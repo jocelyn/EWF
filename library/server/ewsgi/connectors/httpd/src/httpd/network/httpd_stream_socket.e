@@ -10,7 +10,9 @@ class
 	HTTPD_STREAM_SOCKET
 
 create
-	make_server_by_address_and_port, make_server_by_port
+	make_server_by_address_and_port,
+	make_server_by_port,
+	make_from_separate
 
 create {HTTPD_STREAM_SOCKET}
 	make
@@ -25,6 +27,13 @@ feature {NONE} -- Initialization
 	make_server_by_port (a_port: INTEGER)
 		do
 			create {TCP_STREAM_SOCKET} socket.make_server_by_port (a_port)
+		end
+
+	make_from_separate (s: separate HTTPD_STREAM_SOCKET)
+		require
+			descriptor_available: s.descriptor_available
+		do
+			create {TCP_STREAM_SOCKET} socket.make_from_separate (s.socket)
 		end
 
 	retrieve_socket (s: HTTPD_STREAM_SOCKET): INTEGER
@@ -107,6 +116,12 @@ feature -- Output
 		end
 
 feature -- Status Report
+
+	descriptor_available: BOOLEAN
+			-- Is descriptor available?
+		do
+			Result := socket.descriptor_available
+		end
 
 	descriptor: INTEGER
 		do

@@ -56,7 +56,12 @@
 			</cluster>
 			<cluster name="concurrency_thread" location="$|concurrency\thread\" recursive="true">
 				<condition>
-					<concurrency excluded_value="none"/>
+					<concurrency value="thread"/>
+				</condition>
+			</cluster>
+			<cluster name="concurrency_scoop" location="$|concurrency\scoop\" recursive="true">
+				<condition>
+					<concurrency value="scoop"/>
 				</condition>
 			</cluster>
 		</cluster>

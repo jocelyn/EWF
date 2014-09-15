@@ -15,7 +15,7 @@ create
 	make
 
 convert
-	make ({PROCEDURE [ANY, TUPLE [WSF_REQUEST, WSF_RESPONSE]]})
+	make ({FUNCTION [ANY, TUPLE [WSF_REQUEST, WSF_RESPONSE], separate WSF_REQUEST_EXECUTION]})
 
 feature {NONE} -- Implementation
 
@@ -27,20 +27,20 @@ feature {NONE} -- Implementation
 
 feature {NONE} -- Implementation
 
-	callback: PROCEDURE [ANY, TUPLE [req: WSF_REQUEST; res: WSF_RESPONSE]]
+	callback: FUNCTION [ANY, TUPLE [WSF_REQUEST, WSF_RESPONSE], separate WSF_REQUEST_EXECUTION]
 			-- Procedure called on `execute'
 
-	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
+	execution (req: WSF_REQUEST; res: WSF_RESPONSE): separate WSF_REQUEST_EXECUTION
 			-- Execute the request
 		do
-			callback.call ([req, res])
+			Result := callback.item ([req, res])
 		end
 
 invariant
 	callback_attached: callback /= Void
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

@@ -64,13 +64,19 @@ feature -- Access: SSL
 
 feature -- Element change
 
-	set_http_server_name (v: detachable READABLE_STRING_8)
+	set_http_server_name (v: detachable separate READABLE_STRING_8)
 		do
 			if v = Void then
-				http_server_name := Void
+				unset_http_server_name
+--				http_server_name := Void
 			else
-				create {IMMUTABLE_STRING_8} http_server_name.make_from_string (v)
+				create {IMMUTABLE_STRING_8} http_server_name.make_from_separate (v)
 			end
+		end
+
+	unset_http_server_name
+		do
+			http_server_name := Void
 		end
 
 	set_http_server_port (v: like http_server_port)

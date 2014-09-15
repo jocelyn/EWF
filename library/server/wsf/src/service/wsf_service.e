@@ -10,15 +10,29 @@ note
 deferred class
 	WSF_SERVICE
 
+inherit
+	WSF_REQUEST_EXECUTION_FACTORY
+
 feature -- Execution
 
-	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
-			-- Execute the request
-			-- See `req.input' for input stream
-    		--     `req.meta_variables' for the CGI meta variable
-			-- and `res' for output buffer
-		deferred
-		end
+--	execution (a_request: WSF_REQUEST; a_response: WSF_RESPONSE): separate WSF_REQUEST_EXECUTION
+--			-- Execution for the request `a_request' and response `a_response'.
+--		deferred
+--		end
+
+--		do
+--			create {WSF_REQUEST_AGENT_EXECUTION} Result.make (agent execute, a_request, a_response)
+--		end
+
+--feature {NONE} -- Execution: restricted.
+
+--	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
+--			-- Execute the request
+--			-- See `req.input' for input stream
+--    		--     `req.meta_variables' for the CGI meta variable
+--			-- and `res' for output buffer
+--		deferred
+--		end
 
 feature -- Conversion
 
@@ -29,7 +43,7 @@ feature -- Conversion
 		end
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

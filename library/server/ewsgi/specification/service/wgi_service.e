@@ -13,20 +13,31 @@ deferred class
 
 feature {WGI_CONNECTOR} -- Execution
 
-	execute (req: WGI_REQUEST; res: WGI_RESPONSE)
-			-- Execute the request
+	execution (req: separate WGI_REQUEST; res: separate WGI_RESPONSE): separate WGI_REQUEST_EXECUTION
+			-- Execution for the request `a_request' and response `a_response'.
 			-- See `req.input' for input stream
     		--     `req.meta_variables' for the CGI meta variable
 			-- and `res' for output buffer
 		require
 			res_status_unset: not res.status_is_set
 		deferred
-		ensure
-			res_status_set: res.status_is_set
+--			create {separate WGI_REQUEST_AGENT_EXECUTION} Result.make (agent execute, a_request, a_response)
 		end
 
+--	execute (req: WGI_REQUEST; res: WGI_RESPONSE)
+--			-- Execute the request
+--			-- See `req.input' for input stream
+--    		--     `req.meta_variables' for the CGI meta variable
+--			-- and `res' for output buffer
+--		require
+--			res_status_unset: not res.status_is_set
+--		deferred
+--		ensure
+--			res_status_set: res.status_is_set
+--		end
+
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

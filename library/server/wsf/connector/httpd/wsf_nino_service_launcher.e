@@ -45,53 +45,62 @@ feature {NONE} -- Initialization
 			base_url := ""
 
 			if attached options as opts then
-				if attached {READABLE_STRING_GENERAL} opts.option ("server_name") as l_server_name then
-					server_name := l_server_name.to_string_8
-				end
-				if attached {INTEGER} opts.option ("port") as l_port then
-					port_number := l_port
-				elseif
-					attached {READABLE_STRING_GENERAL} opts.option ("port") as l_port_str and then
-					l_port_str.is_integer
-				then
-					port_number := l_port_str.as_string_8.to_integer
-				end
-				if attached {READABLE_STRING_GENERAL} opts.option ("base") as l_base_str then
-					base_url := l_base_str.as_string_8
-				end
-				if
-					attached {READABLE_STRING_GENERAL} opts.option ("max_concurrent_connections") as l_max_concurrent_connections and then
-					l_max_concurrent_connections.is_integer
-				then
-					max_concurrent_connections := l_max_concurrent_connections.to_integer
-				else
-					max_concurrent_connections := 50
-				end
-				if
-					(attached {BOOLEAN} opts.option ("force_single_threaded") as l_single_threaded and then l_single_threaded)
-					or (
-						attached {READABLE_STRING_GENERAL} opts.option ("force_single_threaded") as l_single_threaded_str and then
-						l_single_threaded_str.as_lower.same_string ("true")
-					)
-				then
-					max_concurrent_connections := 0
-				end
-				if
-					(attached {BOOLEAN} opts.option ("verbose") as l_verbose and then l_verbose)
-					or (
-						attached {READABLE_STRING_GENERAL} opts.option ("verbose") as l_verbose_str and then
-						l_verbose_str.as_lower.same_string ("true")
-					)
-				then
-					verbose := True
-				else
-					verbose := False
-				end
+				import_options (opts)
 			end
+
 			create conn.make (Current)
 			connector := conn
 			conn.on_launched_actions.extend (agent on_launched)
 			conn.on_stopped_actions.extend (agent on_stopped)
+		end
+
+	import_options (opts: attached like options)
+			-- Import options from `opts'.
+		do
+			if attached {READABLE_STRING_GENERAL} opts.option ("server_name") as l_server_name then
+				server_name := l_server_name.to_string_8
+			end
+			if attached {INTEGER} opts.option ("port") as l_port then
+				port_number := l_port
+			elseif
+				attached {READABLE_STRING_GENERAL} opts.option ("port") as l_port_str and then
+				l_port_str.is_integer
+			then
+				port_number := l_port_str.as_string_8.to_integer
+			end
+			if attached {READABLE_STRING_GENERAL} opts.option ("base") as l_base_str then
+				base_url := l_base_str.as_string_8
+			end
+			if
+				attached {READABLE_STRING_GENERAL} opts.option ("max_concurrent_connections") as l_max_concurrent_connections and then
+				l_max_concurrent_connections.is_integer
+			then
+				max_concurrent_connections := l_max_concurrent_connections.to_integer
+			elseif attached {INTEGER} opts.option ("max_concurrent_connections") as l_max_concurrent_connections then
+				max_concurrent_connections := l_max_concurrent_connections
+			else
+				max_concurrent_connections := 50
+			end
+			if
+				(attached {BOOLEAN} opts.option ("force_single_threaded") as l_single_threaded and then l_single_threaded)
+				or (
+					attached {READABLE_STRING_GENERAL} opts.option ("force_single_threaded") as l_single_threaded_str and then
+					l_single_threaded_str.as_lower.same_string ("true")
+				)
+			then
+				max_concurrent_connections := 0
+			end
+			if
+				(attached {BOOLEAN} opts.option ("verbose") as l_verbose and then l_verbose)
+				or (
+					attached {READABLE_STRING_GENERAL} opts.option ("verbose") as l_verbose_str and then
+					l_verbose_str.as_lower.same_string ("true")
+				)
+			then
+				verbose := True
+			else
+				verbose := False
+			end
 		end
 
 feature -- Execution
@@ -101,9 +110,6 @@ feature -- Execution
 			-- using `port_number', `base_url', `verbose' and `max_concurrent_connections'
 		do
 			if attached connector as conn then
-				conn.configuration.set_max_concurrent_connections (max_concurrent_connections)
-				conn.configuration.set_is_verbose (verbose)
-				conn.set_base (base_url)
 				debug ("nino")
 					if verbose then
 						io.error.put_string ("Launching Nino web server on port " + port_number.out)
@@ -114,12 +120,22 @@ feature -- Execution
 						end
 					end
 				end
-				if attached server_name as l_server_name then
-					conn.configuration.set_http_server_name (l_server_name)
-				end
-				conn.configuration.http_server_port := port_number
+				update_configuration (conn.configuration)
+				conn.set_base (base_url)
 				conn.launch
 			end
+		end
+
+	update_configuration (cfg: separate HTTPD_CONFIGURATION)
+		do
+			cfg.set_max_concurrent_connections (max_concurrent_connections)
+			cfg.set_is_verbose (verbose)
+			if attached server_name as l_server_name then
+				cfg.set_http_server_name (l_server_name)
+			else
+				cfg.unset_http_server_name
+			end
+			cfg.http_server_port := port_number
 		end
 
 feature -- Callback

@@ -7,14 +7,15 @@ class
 	TCP_STREAM_SOCKET
 
 inherit
-
 	NETWORK_STREAM_SOCKET
 		redefine
 			make
 		end
 
 create
-	make_server_by_address_and_port, make_server_by_port
+	make_server_by_address_and_port,
+	make_server_by_port,
+	make_from_separate
 
 create {NETWORK_STREAM_SOCKET}
 	make_from_descriptor_and_address
@@ -36,6 +37,13 @@ feature {NONE} -- Initialization
 			make
 			create address.make_from_address_and_port (an_address, a_port)
 			bind
+		end
+
+	make_from_separate (s: separate STREAM_SOCKET)
+		require
+			descriptor_available: s.descriptor_available
+		do
+			create_from_descriptor (s.descriptor)
 		end
 
 feature -- Basic operation
@@ -70,7 +78,14 @@ feature -- Status report
 		end
 
 note
-	copyright: "2011-2013, Javier Velilla, Jocelyn Fiat and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
+	source: "[
+			Eiffel Software
+			5949 Hollister Ave., Goleta, CA 93117 USA
+			Telephone 805-685-1006, Fax 805-685-6869
+			Website http://www.eiffel.com
+			Customer support http://support.eiffel.com
+		]"
 
 end

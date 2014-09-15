@@ -29,7 +29,7 @@ feature {NONE}  -- Make
 
 feature {WGI_CONNECTOR} -- Implementation: Execution
 
-	execute (req: WGI_REQUEST; res: WGI_RESPONSE)
+	execution (req: separate WGI_REQUEST; res: separate WGI_RESPONSE): separate WGI_REQUEST_EXECUTION
 			-- Delegate the WGI processing to the WSF_SERVICE object
 			-- <Precursor>
 		local
@@ -38,22 +38,29 @@ feature {WGI_CONNECTOR} -- Implementation: Execution
 		do
 			create w_res.make_from_wgi (res)
 			create w_req.make_from_wgi (req)
-			service.execute (w_req, w_res)
+			create {separate WSF_TO_WGI_REQUEST_EXECUTION} Result.make (agent execute, a_request, a_response)
+
+			process_execution (service.execution (w_req, w_res))
 			w_req.destroy
-		rescue
-			if w_res /= Void then
-				if not (w_res.status_committed or w_res.header_committed) then
-					w_res.set_status_code ({HTTP_STATUS_CODE}.internal_server_error)
-				end
-				w_res.flush
-			end
-			if w_req /= Void then
-				w_req.destroy
-			end
+--		rescue
+--			if w_res /= Void then
+--				if not (w_res.status_committed or w_res.header_committed) then
+--					w_res.set_status_code ({HTTP_STATUS_CODE}.internal_server_error)
+--				end
+--				w_res.flush
+--			end
+--			if w_req /= Void then
+--				w_req.destroy
+--			end
+		end
+
+	process_execution (a_execution: separate WSF_REQUEST_EXECUTION)
+		do
+			a_execution.execute
 		end
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

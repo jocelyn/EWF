@@ -149,7 +149,7 @@ feature -- Eiffel WGI access
 		deferred
 		end
 
-	wgi_connector: WGI_CONNECTOR
+	wgi_connector: separate WGI_CONNECTOR
 			-- Associated Eiffel WGI connector
 		deferred
 		end

@@ -422,7 +422,7 @@ feature -- Eiffel WGI access
 			Result := wgi_request.wgi_implementation
 		end
 
-	wgi_connector: WGI_CONNECTOR
+	wgi_connector: separate WGI_CONNECTOR
 			-- Associated Eiffel WGI connector
 		do
 			Result := wgi_request.wgi_connector

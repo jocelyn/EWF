@@ -1,16 +1,23 @@
 note
-	description: "Summary description for {HTTPD_REQUEST_HANDLER_FACTORY_I}."
+	description: "Summary description for {WGI_REQUEST_EXECUTION}."
 	author: ""
 	date: "$Date$"
 	revision: "$Revision$"
 
 deferred class
-	HTTPD_REQUEST_HANDLER_FACTORY_I
+	WGI_REQUEST_EXECUTION
 
-feature -- Factory
+feature -- Access
 
-	new_handler: separate HTTPD_REQUEST_HANDLER
+	request: separate WGI_REQUEST
+
+	response: separate WGI_RESPONSE
+
+feature -- Execution
+
+	execute
 		deferred
+			----			response.push !!
 		end
 
 note
