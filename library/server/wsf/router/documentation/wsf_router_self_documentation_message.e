@@ -43,7 +43,7 @@ feature {NONE} -- Initialization
 
 feature -- Access		
 
-	status_code: INTEGER
+	status_code: NATURAL
 			-- Associated status code
 			-- Default is Ok
 

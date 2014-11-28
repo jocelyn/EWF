@@ -62,7 +62,7 @@ feature -- Specific output
 
 feature -- Status writing
 
-	put_status_line (a_code: INTEGER; a_reason_phrase: detachable READABLE_STRING_8)
+	put_status_line (a_code: NATURAL; a_reason_phrase: detachable READABLE_STRING_8)
 			-- Put status code line for `a_code'
 			-- with custom `a_reason_phrase' if precised
 			--| Note this is a default implementation, and could be redefined
@@ -93,7 +93,7 @@ feature -- Constant
 	crlf: STRING = "%R%N"
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

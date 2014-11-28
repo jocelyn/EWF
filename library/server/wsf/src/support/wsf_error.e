@@ -22,7 +22,7 @@ feature {NONE} -- Initialization
 		do
 			code := a_code
 			name := "HTTP Error"
-			if attached http_status_code_message (a_code) as m then
+			if attached http_status_code_message (a_code.to_natural_32) as m then
 				name := m
 			end
 		end
@@ -54,7 +54,7 @@ feature -- Visitor
 		end
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

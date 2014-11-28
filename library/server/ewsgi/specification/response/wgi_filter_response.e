@@ -80,14 +80,14 @@ feature -- Status setting
 			Result := wgi_response.status_is_set
 		end
 
-	set_status_code (a_code: INTEGER; a_reason_phrase: detachable READABLE_STRING_8)
+	set_status_code (a_code: NATURAL; a_reason_phrase: detachable READABLE_STRING_8)
 			-- Set response status code with custom `a_reason_phrase' if precised
 			-- Should be done before sending any data back to the client
 		do
 			wgi_response.set_status_code (a_code, a_reason_phrase)
 		end
 
-	status_code: INTEGER
+	status_code: NATURAL
 			-- Response status
 		do
 			Result := wgi_response.status_code
@@ -145,7 +145,7 @@ feature -- Error reporting
 		end
 
 note
-	copyright: "2011-2013, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

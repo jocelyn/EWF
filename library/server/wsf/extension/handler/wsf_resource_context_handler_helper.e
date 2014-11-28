@@ -201,7 +201,7 @@ feature -- Handle responses
 --			Result := Void
 --		end
 
-	handle_error (a_description: STRING; a_status_code: INTEGER; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_error (a_description: STRING; a_status_code: NATURAL; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Handle an error.
 		local
 			h: HTTP_HEADER
@@ -264,7 +264,7 @@ feature -- Handle responses: others
 		end
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

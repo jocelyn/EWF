@@ -16,7 +16,7 @@ inherit
 
 feature -- Status report
 
-	is_valid_http_status_code (v: INTEGER): BOOLEAN
+	is_valid_http_status_code (v: NATURAL): BOOLEAN
 			-- Is the given value a valid http status code?
 		do
 			Result := v >= continue and v <= user_access_denied
@@ -24,7 +24,7 @@ feature -- Status report
 
 feature -- Status messages
 
-	http_status_code_message (a_code: INTEGER): detachable STRING
+	http_status_code_message (a_code: NATURAL): detachable STRING
 			-- Header message related to HTTP status code `a_code'
 		do
 			inspect a_code
@@ -148,7 +148,7 @@ feature -- Status messages
 		end
 
 note
-	copyright: "2011-2012, Jocelyn Fiat, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

@@ -262,7 +262,7 @@ feature -- Handle responses
 
 	-- TODO: review HTTP requirements on `a_description' for each individual error code.
 
-	handle_error (a_description: STRING; a_status_code: INTEGER; req: WSF_REQUEST; res: WSF_RESPONSE)
+	handle_error (a_description: STRING; a_status_code: NATURAL; req: WSF_REQUEST; res: WSF_RESPONSE)
 			-- Handle an error.
 		require
 			a_description_attached: a_description /= Void
@@ -374,7 +374,7 @@ feature -- Handle responses: others
 		end
 
 note
-	copyright: "2011-2013, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

@@ -40,7 +40,7 @@ feature -- Status report
 
 feature -- Status writing
 
-	put_status_line (a_code: INTEGER; a_reason_phrase: detachable READABLE_STRING_8)
+	put_status_line (a_code: NATURAL; a_reason_phrase: detachable READABLE_STRING_8)
 			-- <Precursor>
 		local
 			s: STRING
@@ -50,7 +50,7 @@ feature -- Status writing
 				create s.make (16)
 				s.append ("Status:")
 				s.append_character (' ')
-				s.append_integer (a_code)
+				s.append_natural_32 (a_code)
 				m := a_reason_phrase
 				if m = Void then
 					m := http_status_code_message (a_code)
@@ -100,7 +100,7 @@ invariant
 	fcgi_attached: fcgi /= Void
 
 note
-	copyright: "2011-2011, Eiffel Software and others"
+	copyright: "2011-2014, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

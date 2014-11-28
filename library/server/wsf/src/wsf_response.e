@@ -107,7 +107,7 @@ feature -- Status setting
 			Result := status_code > 0
 		end
 
-	set_status_code (a_code: INTEGER)
+	set_status_code (a_code: NATURAL)
 			-- Set response status code
 			-- Should be done before sending any data back to the client
 			--| note: the status is really sent when the header are set
@@ -125,7 +125,7 @@ feature -- Status setting
 			status_reason_phrase_unset: status_reason_phrase = Void
 		end
 
-	set_status_code_with_reason_phrase (a_code: INTEGER; a_reason_phrase: READABLE_STRING_8)
+	set_status_code_with_reason_phrase (a_code: NATURAL; a_reason_phrase: READABLE_STRING_8)
 			-- Set response status code
 			-- Should be done before sending any data back to the client
 			--| note: the status is really sent when the header are set			
@@ -142,7 +142,7 @@ feature -- Status setting
 			status_set: status_is_set
 		end
 
-	status_code: INTEGER
+	status_code: NATURAL
 			-- Response status
 
 	status_reason_phrase: detachable READABLE_STRING_8
@@ -256,7 +256,7 @@ feature -- Header output operation
 
 feature -- Header output operation: helpers
 
-	put_header (a_status_code: INTEGER; a_headers: detachable ARRAY [TUPLE [name: READABLE_STRING_8; value: READABLE_STRING_8]])
+	put_header (a_status_code: NATURAL; a_headers: detachable ARRAY [TUPLE [name: READABLE_STRING_8; value: READABLE_STRING_8]])
 			-- Put headers with status `a_status', and headers from `a_headers'
 		require
 			a_status_code_valid: a_status_code > 0
@@ -276,7 +276,7 @@ feature -- Header output operation: helpers
 			message_writable: message_writable
 		end
 
-	add_header (a_status_code: INTEGER; a_headers: detachable ARRAY [TUPLE [name: READABLE_STRING_8; value: READABLE_STRING_8]])
+	add_header (a_status_code: NATURAL; a_headers: detachable ARRAY [TUPLE [name: READABLE_STRING_8; value: READABLE_STRING_8]])
 			-- Put headers with status `a_status', and headers from `a_headers'
 		require
 			a_status_code_valid: a_status_code > 0
@@ -458,7 +458,7 @@ feature -- Response object
 
 feature -- Redirect
 
-	redirect_now_custom (a_url: READABLE_STRING_8; a_status_code: INTEGER; a_header: detachable HTTP_HEADER; a_content: detachable TUPLE [body: READABLE_STRING_8; type: READABLE_STRING_8])
+	redirect_now_custom (a_url: READABLE_STRING_8; a_status_code: NATURAL; a_header: detachable HTTP_HEADER; a_content: detachable TUPLE [body: READABLE_STRING_8; type: READABLE_STRING_8])
 			-- Redirect to the given url `a_url' and precise custom `a_status_code', custom header and content
 			-- Please see http://www.faqs.org/rfcs/rfc2616 to use proper status code.
 			-- if `a_status_code' is 0, use the default {HTTP_STATUS_CODE}.temp_redirect

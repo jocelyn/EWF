@@ -57,7 +57,7 @@ feature -- Status setting
 			Result := status_code > 0
 		end
 
-	set_status_code (a_code: INTEGER; a_reason_phrase: detachable READABLE_STRING_8)
+	set_status_code (a_code: NATURAL; a_reason_phrase: detachable READABLE_STRING_8)
 			-- Set response status code
 			-- Should be done before sending any data back to the client
 		do
@@ -67,7 +67,7 @@ feature -- Status setting
 			status_committed := True
 		end
 
-	status_code: INTEGER
+	status_code: NATURAL
 			-- Response status
 
 	status_reason_phrase: detachable READABLE_STRING_8
@@ -128,7 +128,7 @@ feature {NONE} -- Implementation: Access
 			-- Server output channel
 
 ;note
-	copyright: "2011-2012, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

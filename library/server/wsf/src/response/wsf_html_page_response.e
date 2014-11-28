@@ -26,7 +26,7 @@ feature {NONE} -- Initialization
 
 feature -- Status
 
-	status_code: INTEGER
+	status_code: NATURAL
 
 feature -- Header
 
@@ -197,7 +197,7 @@ feature {NONE} -- HTML Generation
 		end
 
 note
-	copyright: "2011-2013, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

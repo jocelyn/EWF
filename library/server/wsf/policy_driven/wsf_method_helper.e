@@ -382,12 +382,12 @@ feature -- Error reporting
 			create h.make
 			h.put_content_type_utf_8_text_plain
 			h.put_content_length (m.count)
-			res.set_status_code (req.error_handler.primary_error_code)
+			res.set_status_code (req.error_handler.primary_error_code.to_natural_32) -- FIXME: is there a mapping between status code and error code ??
 			res.put_header_lines (h)
 			res.put_string (m)
 		end
 
-	handle_redirection_error (req: WSF_REQUEST; res: WSF_RESPONSE; a_locations: LIST [URI]; a_status_code: INTEGER)
+	handle_redirection_error (req: WSF_REQUEST; res: WSF_RESPONSE; a_locations: LIST [URI]; a_status_code: NATURAL)
 			-- Write `a_status_code' error to `res'.
 			-- Include all of `a_locations' in the headers, and hyperlink to the first one in the body.
 		require

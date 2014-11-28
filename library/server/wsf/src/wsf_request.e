@@ -2003,7 +2003,7 @@ feature {NONE} -- Implementation
 		local
 			e: WSF_ERROR
 		do
-			create e.make ({HTTP_STATUS_CODE}.bad_request)
+			create e.make ({HTTP_STATUS_CODE}.bad_request.to_integer_32)
 			if a_message /= Void then
 				e.set_message (a_message)
 			end

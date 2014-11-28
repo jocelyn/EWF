@@ -88,7 +88,7 @@ feature -- Access
 
 	header: HTTP_HEADER
 
-	status_code: INTEGER assign set_status_code
+	status_code: NATURAL assign set_status_code
 
 	file_path: PATH
 
@@ -230,7 +230,7 @@ invariant
 	status_code_set: status_code /= 0
 
 note
-	copyright: "2011-2013, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

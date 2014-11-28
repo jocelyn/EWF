@@ -59,7 +59,7 @@ feature -- Basic operations
 			s.append ({HTTP_CONSTANTS}.http_version_1_1)
 			s.append_character ('%"')
 			s.append_character (' ')
-			s.append_integer (res.status_code)
+			s.append_natural_32 (res.status_code)
 			s.append_character (' ')
 			s.append_natural_64 (res.transfered_content_length)
 			s.append_character (' ')
@@ -88,6 +88,13 @@ feature -- Constants
 	Date_time_format: STRING = "[0]dd/[0]mm/yyyy [0]hh:[0]mi:[0]ss"
 
 note
-	copyright: "2011-2012, Olivier Ligot, Jocelyn Fiat and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
+	source: "[
+			Eiffel Software
+			5949 Hollister Ave., Goleta, CA 93117 USA
+			Telephone 805-685-1006, Fax 805-685-6869
+			Website http://www.eiffel.com
+			Customer support http://support.eiffel.com
+		]"
 end

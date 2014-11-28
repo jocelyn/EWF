@@ -35,7 +35,7 @@ feature {NONE} -- Initialization
 
 feature -- Status
 
-	status_code: INTEGER
+	status_code: NATURAL
 
 feature -- Header
 
@@ -45,7 +45,7 @@ feature -- Header
 
 feature -- Element change
 
-	put_header (a_status_code: INTEGER; a_headers: detachable ARRAY [TUPLE [key: READABLE_STRING_8; value: READABLE_STRING_8]])
+	put_header (a_status_code: NATURAL; a_headers: detachable ARRAY [TUPLE [key: READABLE_STRING_8; value: READABLE_STRING_8]])
 			-- Send headers with status `a_status', and headers from `a_headers'
 		do
 			set_status_code (a_status_code)
@@ -105,7 +105,7 @@ feature {WSF_RESPONSE} -- Output
 		end
 
 note
-	copyright: "2011-2013, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

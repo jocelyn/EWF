@@ -13,85 +13,85 @@ class
 
 feature -- 1xx : Informational
 
-	continue: INTEGER 				= 100
-	switching_protocols: INTEGER 	= 101
-	processing: INTEGER 			= 102 	-- WebDAV RFC 2518
-	ie7_request_uri_too_long: INTEGER 	= 122 	-- non standard, IE7 only
+	continue: NATURAL 				= 100
+	switching_protocols: NATURAL 	= 101
+	processing: NATURAL 			= 102 	-- WebDAV RFC 2518
+	ie7_request_uri_too_long: NATURAL 	= 122 	-- non standard, IE7 only
 
 feature -- 2xx : Success
 
-	ok: INTEGER						= 200
-	created: INTEGER 				= 201
-	accepted: INTEGER 				= 202
-	nonauthoritative_info: INTEGER 	= 203
-	no_content: INTEGER 			= 204
-	reset_content: INTEGER 			= 205
-	partial_content: INTEGER 		= 206
-	multistatus: INTEGER 			= 207	-- WebDAV RFC 4918
-	im_used: INTEGER 				= 226	-- RFC 4918
+	ok: NATURAL						= 200
+	created: NATURAL 				= 201
+	accepted: NATURAL 				= 202
+	nonauthoritative_info: NATURAL 	= 203
+	no_content: NATURAL 			= 204
+	reset_content: NATURAL 			= 205
+	partial_content: NATURAL 		= 206
+	multistatus: NATURAL 			= 207	-- WebDAV RFC 4918
+	im_used: NATURAL 				= 226	-- RFC 4918
 
 feature -- 3xx : Redirection
 
-	multiple_choices: INTEGER		= 300
-	moved_permanently: INTEGER 		= 301
-	found: INTEGER 					= 302
-	see_other: INTEGER 				= 303
-	not_modified: INTEGER 			= 304
-	use_proxy: INTEGER 				= 305
-	switch_proxy: INTEGER 			= 306
-	temp_redirect: INTEGER 			= 307
+	multiple_choices: NATURAL		= 300
+	moved_permanently: NATURAL 		= 301
+	found: NATURAL 					= 302
+	see_other: NATURAL 				= 303
+	not_modified: NATURAL 			= 304
+	use_proxy: NATURAL 				= 305
+	switch_proxy: NATURAL 			= 306
+	temp_redirect: NATURAL 			= 307
 
 feature -- 4xx : Client Error
 
-	bad_request: INTEGER 					= 400
-	unauthorized: INTEGER 					= 401
-	payment_required: INTEGER 				= 402
-	forbidden: INTEGER 						= 403
-	not_found: INTEGER 						= 404
-	method_not_allowed: INTEGER 			= 405
-	not_acceptable: INTEGER 				= 406
-	proxy_auth_required: INTEGER 			= 407
-	request_timeout: INTEGER 				= 408
-	conflict: INTEGER 						= 409
-	gone: INTEGER 							= 410
-	length_required: INTEGER 				= 411
-	precondition_failed: INTEGER 			= 412
-	request_entity_too_large: INTEGER 		= 413
-	request_uri_too_long: INTEGER 			= 414
-	unsupported_media_type: INTEGER 		= 415
-	request_range_not_satisfiable: INTEGER 	= 416
-	expectation_failed: INTEGER 			= 417
-	teapot: INTEGER							= 418
+	bad_request: NATURAL 					= 400
+	unauthorized: NATURAL 					= 401
+	payment_required: NATURAL 				= 402
+	forbidden: NATURAL 						= 403
+	not_found: NATURAL 						= 404
+	method_not_allowed: NATURAL 			= 405
+	not_acceptable: NATURAL 				= 406
+	proxy_auth_required: NATURAL 			= 407
+	request_timeout: NATURAL 				= 408
+	conflict: NATURAL 						= 409
+	gone: NATURAL 							= 410
+	length_required: NATURAL 				= 411
+	precondition_failed: NATURAL 			= 412
+	request_entity_too_large: NATURAL 		= 413
+	request_uri_too_long: NATURAL 			= 414
+	unsupported_media_type: NATURAL 		= 415
+	request_range_not_satisfiable: NATURAL 	= 416
+	expectation_failed: NATURAL 			= 417
+	teapot: NATURAL							= 418
 
 feature -- 4xx : Client Error : WebDAV errors
 
-	too_many_connections: INTEGER			= 421
-	unprocessable_entity: INTEGER 			= 422
-	locked: INTEGER 						= 423
-	failed_dependency: INTEGER 				= 424
-	unordered_collection: INTEGER 			= 425
+	too_many_connections: NATURAL			= 421
+	unprocessable_entity: NATURAL 			= 422
+	locked: NATURAL 						= 423
+	failed_dependency: NATURAL 				= 424
+	unordered_collection: NATURAL 			= 425
 
-	upgrade_required: INTEGER 				= 426
-	no_response: INTEGER 					= 444
-	retry_with: INTEGER 					= 449
-	blocked_parental: INTEGER 				= 450
-	client_closed_request: INTEGER 			= 499
+	upgrade_required: NATURAL 				= 426
+	no_response: NATURAL 					= 444
+	retry_with: NATURAL 					= 449
+	blocked_parental: NATURAL 				= 450
+	client_closed_request: NATURAL 			= 499
 
 feature -- 5xx : Server Error
 
-	internal_server_error: INTEGER			= 500
-	not_implemented: INTEGER 				= 501
-	bad_gateway: INTEGER 					= 502
-	service_unavailable: INTEGER 			= 503
-	gateway_timeout: INTEGER 				= 504
-	http_version_not_supported: INTEGER 	= 505
-	variant_also_negotiates: INTEGER 		= 506
-	insufficient_storage: INTEGER 			= 507	-- WebDAV RFC 4918
+	internal_server_error: NATURAL			= 500
+	not_implemented: NATURAL 				= 501
+	bad_gateway: NATURAL 					= 502
+	service_unavailable: NATURAL 			= 503
+	gateway_timeout: NATURAL 				= 504
+	http_version_not_supported: NATURAL 	= 505
+	variant_also_negotiates: NATURAL 		= 506
+	insufficient_storage: NATURAL 			= 507	-- WebDAV RFC 4918
 
-	bandwidth_limit_exceeded: INTEGER		= 509
-	not_extended: INTEGER 					= 510
+	bandwidth_limit_exceeded: NATURAL		= 509
+	not_extended: NATURAL 					= 510
 
-	user_access_denied: INTEGER 			= 530
+	user_access_denied: NATURAL 			= 530
 
 note
 	copyright: "2011-2012, Jocelyn Fiat, Eiffel Software and others"

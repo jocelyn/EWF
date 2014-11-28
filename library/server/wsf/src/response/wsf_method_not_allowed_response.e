@@ -101,9 +101,9 @@ feature {WSF_RESPONSE} -- Output
 		do
 			create l_messages
 			h := header
-			if 
-				not attached recognized_methods as l_recognized_methods 
-				or else l_recognized_methods.has (request.request_method.as_upper) 
+			if
+				not attached recognized_methods as l_recognized_methods
+				or else l_recognized_methods.has (request.request_method.as_upper)
 			then
 				res.set_status_code (l_messages.method_not_allowed)
 			else
@@ -304,7 +304,7 @@ feature {NONE} -- Implementation
 		require
 			a_messages_attached: a_messages /= Void
 		local
-			l_code: INTEGER
+			l_code: NATURAL
 		do
 			if a_recognized then
 				l_code := a_messages.method_not_allowed
@@ -327,7 +327,7 @@ feature {NONE} -- Implementation
 		end
 
 note
-	copyright: "2011-2013, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Eiffel Software and others"
+	copyright: "2011-2014, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software
