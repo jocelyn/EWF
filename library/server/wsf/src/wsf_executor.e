@@ -1,38 +1,21 @@
 note
-	description: "Execution based on router."
+	description: "Request execution with request and response passed as argument."
 	date: "$Date$"
 	revision: "$Revision$"
 
 deferred class
-	WSF_ROUTED_EXECUTION
+	WSF_EXECUTOR
 
-inherit
-	WSF_EXECUTION
-		redefine
-			initialize
-		end
-
-	WSF_ROUTED_EXECUTOR
-		rename
-			initialize as initialize_executor,
-			execute as process_execution
-		end
-
-feature {NONE} -- Initialize
+feature {NONE} -- Initialization
 
 	initialize
 		do
-			Precursor {WSF_EXECUTION}
-			initialize_executor
 		end
-
+		
 feature -- Execution
 
-	execute
-			-- Dispatch the request
-			-- and if handler is not found, execute the default procedure `execute_default'.
-		do
-			process_execution (request, response)
+	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
+		deferred
 		end
 
 note

@@ -1,7 +1,7 @@
 note
 	description: "Request execution based on attributes `request' and `response'. "
-	date: "$Date$"
-	revision: "$Revision$"
+	date: "$Date: 2015-06-16 15:03:22 +0200 (mar., 16 juin 2015) $"
+	revision: "$Revision: 97475 $"
 
 deferred class
 	WSF_EXECUTION
@@ -11,7 +11,7 @@ inherit
 		rename
 			request as wgi_request,
 			response as wgi_response,
-			make_from_execution as make_from_wgi_execution			
+			make_from_execution as make_from_wgi_execution
 		redefine
 			make,
 			execute,

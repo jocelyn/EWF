@@ -1,41 +1,36 @@
 note
-	description: "Execution based on router."
+	description: "Summary description for {WSF_FILTERED_EXECUTOR}."
+	author: ""
 	date: "$Date$"
 	revision: "$Revision$"
 
 deferred class
-	WSF_ROUTED_EXECUTION
+	WSF_FILTERED_EXECUTOR
 
 inherit
-	WSF_EXECUTION
+	WSF_EXECUTOR
 		redefine
 			initialize
 		end
 
-	WSF_ROUTED_EXECUTOR
-		rename
-			initialize as initialize_executor,
-			execute as process_execution
-		end
+	WSF_FILTERED
 
-feature {NONE} -- Initialize
+feature {NONE} -- Initialization
 
 	initialize
 		do
-			Precursor {WSF_EXECUTION}
-			initialize_executor
+			Precursor
+			initialize_filter
 		end
 
 feature -- Execution
 
-	execute
-			-- Dispatch the request
-			-- and if handler is not found, execute the default procedure `execute_default'.
+	execute (req: WSF_REQUEST; res: WSF_RESPONSE)
 		do
-			process_execution (request, response)
+			filter.execute (req, res)
 		end
 
-note
+;note
 	copyright: "2011-2015, Jocelyn Fiat, Javier Velilla, Olivier Ligot, Colin Adams, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[

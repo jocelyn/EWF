@@ -13,21 +13,27 @@ inherit
 			initialize
 		end
 
-	WSF_FILTERED
+	WSF_FILTERED_EXECUTOR
+		rename
+			initialize as initialize_executor,
+			execute as process_execution
+		end
 
 feature {NONE} -- Initialization
 
 	initialize
 		do
-			Precursor
-			initialize_filter
+			Precursor {WSF_EXECUTION}
+			initialize_executor
 		end
 
 feature -- Execution
 
 	execute
+			-- Dispatch the request
+			-- and if handler is not found, execute the default procedure `execute_default'.
 		do
-			filter.execute (request, response)
+			process_execution (request, response)
 		end
 
 ;note
