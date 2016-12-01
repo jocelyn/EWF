@@ -99,11 +99,14 @@ feature -- Output
 
 	put_file_content (a_file: FILE; a_offset: INTEGER; a_byte_count: INTEGER)
 			-- Send `a_byte_count' bytes from the content of file `a_file' starting at offset `a_offset'.
-			--| Could be redefine for optimization.
 		do
-			last_target_call_succeed := False
-			target.put_file_content (a_file, a_offset, a_byte_count)
-			last_target_call_succeed := not target.was_error
+			if a_byte_count > 500_000 then
+				last_target_call_succeed := False
+				target.put_file_content (a_file, a_offset, a_byte_count)
+				last_target_call_succeed := not target.was_error
+			else
+				Precursor (a_file, a_offset, a_byte_count)
+			end
 		end		
 
 feature -- Status report
