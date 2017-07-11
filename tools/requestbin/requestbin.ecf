@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-15-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-15-0 http://www.eiffel.com/developers/xml/configuration-1-15-0.xsd" name="requestbin" uuid="FF1E47E3-7677-4E1C-9459-2E2C2341325A">
+	<target name="common" abstract="true">
+		<file_rule>
+			<exclude>/.svn$</exclude>
+			<exclude>/CVS$</exclude>
+			<exclude>/EIFGENs$</exclude>
+		</file_rule>
+		<option warning="true" void_safety="all">
+			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
+		</option>
+		<setting name="console_application" value="true"/>
+		<setting name="concurrency" value="scoop"/>
+		<library name="base" location="$ISE_LIBRARY\library\base\base-safe.ecf"/>
+		<library name="encoder" location="..\..\library\text\encoder\encoder-safe.ecf" readonly="false"/>
+		<library name="http" location="..\..\library\network\protocol\http\http-safe.ecf"/>
+		<library name="wsf" location="..\..\library\server\wsf\wsf-safe.ecf" readonly="false"/>
+		<library name="wsf_extension" location="..\..\library\server\wsf\wsf_extension-safe.ecf" readonly="false"/>
+	</target>
+	<target name="requestbin_any" extends="common">
+		<root class="EWF_REQUESTBIN_SERVER" feature="make_and_launch"/>
+		<setting name="concurrency" value="scoop"/>
+		<library name="cgi" location="..\..\library\server\wsf\connector\cgi-safe.ecf" readonly="false"/>
+		<library name="libfcgi" location="..\..\library\server\wsf\connector\libfcgi-safe.ecf" readonly="false"/>
+		<library name="standalone" location="..\..\library\server\wsf\connector\standalone-safe.ecf" readonly="false"/>
+		<cluster name="launcher" location=".\launcher\any\" recursive="true"/>
+		<cluster name="src" location=".\src\" recursive="true"/>
+	</target>
+	<target name="requestbin" extends="common">
+		<root class="EWF_REQUESTBIN_SERVER" feature="make_and_launch"/>
+		<setting name="concurrency" value="scoop"/>
+		<library name="default_standalone" location="..\..\library\server\wsf\default\standalone-safe.ecf" readonly="false"/>
+		<cluster name="launcher" location=".\launcher\default\" recursive="true"/>
+		<cluster name="src" location=".\src\" recursive="true"/>
+	</target>
+	<target name="requestbin_cgi" extends="common">
+		<root class="EWF_REQUESTBIN_SERVER" feature="make_and_launch"/>
+		<library name="default_cgi" location="..\..\library\server\wsf\default\cgi-safe.ecf" readonly="false"/>
+		<cluster name="launcher" location=".\launcher\default\" recursive="true"/>
+		<cluster name="src" location=".\src\" recursive="true"/>
+	</target>
+	<target name="requestbin_libfcgi" extends="common">
+		<root class="EWF_REQUESTBIN_SERVER" feature="make_and_launch"/>
+		<library name="default_libfcgi" location="..\..\library\server\wsf\default\libfcgi-safe.ecf"/>
+		<cluster name="launcher" location=".\launcher\default\" recursive="true"/>
+		<cluster name="src" location=".\src\" recursive="true"/>
+	</target>
+</system>
