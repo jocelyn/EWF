@@ -209,43 +209,48 @@ feature {WEB_SOCKET_HANDLER} -- Networking
 
 	wait_for_input (cb: detachable WEB_SOCKET_EVENT_I)
 		local
-			l_timeout, nb: INTEGER
-			l_cb_timeout: INTEGER
+			l_timeout_ns: NATURAL_64
+			nb: NATURAL_64
+			l_cb_timeout_ns: NATURAL_64
 		do
 			has_input := False
 			if cb = Void then
 				has_input := socket.ready_for_reading
 			else
-				l_cb_timeout := cb.timer_delay
-				l_timeout := socket.timeout
-				if l_cb_timeout = 0 then
+				l_cb_timeout_ns := cb.timer_delay_ns
+				l_timeout_ns := socket.timeout_ns
+				if l_cb_timeout_ns = 0 then
 						-- timeout event not enabled.
 					has_input := socket.ready_for_reading
 				else
 					cb.on_timer (Current)
-					if l_cb_timeout > l_timeout then
+					if l_cb_timeout_ns > l_timeout_ns then
 							-- event timeout duration is bigger than socket timeout
 							-- thus, no on_timeout before next frame waiting
 						has_input := socket.ready_for_reading
 					else
 						from
-							l_timeout := socket.timeout
-							nb := l_timeout
-							socket.set_timeout (l_cb_timeout) -- FIXME: for now 1 sec is the smaller timeout we can use.
+							l_timeout_ns := socket.timeout_ns
+							nb := l_timeout_ns
+							socket.set_timeout_ns (l_cb_timeout_ns)
 						until
-							has_input or nb <= 0
+							has_input or nb = 0
 						loop
 							has_input := socket.ready_for_reading
 							if not has_input then
 									-- Call on_timeout only if there is no input,
 									-- otherwise it was called once before the initial wait.
-								socket.set_timeout (l_timeout)
+								socket.set_timeout_ns (l_timeout_ns)
 								cb.on_timer (Current)
-								socket.set_timeout (l_cb_timeout)
+								socket.set_timeout_ns (l_cb_timeout_ns)
 							end
-							nb := nb - l_cb_timeout
+							if l_cb_timeout_ns < nb then
+								nb := nb - l_cb_timeout_ns
+							else
+								nb := 0
+							end
 						end
-						socket.set_timeout (l_timeout)
+						socket.set_timeout_ns (l_timeout_ns)
 					end
 				end
 			end
@@ -772,7 +777,7 @@ feature {NONE} -- Debug
 		end
 
 note
-	copyright: "2011-2017, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2018, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software
