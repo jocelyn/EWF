@@ -199,7 +199,7 @@ feature {WSF_WEBSOCKET_EXECUTION} -- Basic Operation
 			end
 		end
 
-feature {WEB_SOCKET_HANDLER} -- Networking
+feature {WEB_SOCKET_HANDLER, WEB_SOCKET_WRITER} -- Networking
 
 	socket: HTTPD_STREAM_SOCKET
 			-- Underlying connected socket.
@@ -773,7 +773,7 @@ feature {NONE} -- Debug
 		end
 
 note
-	copyright: "2011-2018, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
+	copyright: "2011-2021, Jocelyn Fiat, Javier Velilla, Eiffel Software and others"
 	license: "Eiffel Forum License v2 (see http://www.eiffel.com/licensing/forum.txt)"
 	source: "[
 			Eiffel Software

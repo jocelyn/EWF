@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-21-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-21-0 http://www.eiffel.com/developers/xml/configuration-1-21-0.xsd" name="websocket_chatroom" uuid="ADB44296-2F32-4136-ABEE-3273BDF8F165">
+	<target name="websocket_chatroom">
+		<root class="CHATROOM_APPLICATION" feature="make_and_launch"/>
+		<file_rule>
+			<exclude>/CVS$</exclude>
+			<exclude>/EIFGENs$</exclude>
+			<exclude>/\.svn$</exclude>
+		</file_rule>
+		<option warning="warning">
+			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
+		</option>
+		<setting name="console_application" value="true"/>
+		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
+		<library name="http" location="..\..\library\network\protocol\http\http.ecf"/>
+		<library name="http_network" location="..\..\library\network\http_network\http_network.ecf" readonly="false"/>
+		<library name="standalone_websocket_connector" location="..\..\library\server\wsf\connector\standalone_websocket.ecf" readonly="false"/>
+		<library name="uuid" location="$ISE_LIBRARY\library\uuid\uuid.ecf"/>
+		<library name="wsf" location="..\..\library\server\wsf\wsf.ecf"/>
+		<cluster name="app" location=".\chatroom" recursive="true"/>
+	</target>
+</system>
